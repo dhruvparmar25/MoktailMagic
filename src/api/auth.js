@@ -1,4 +1,3 @@
-
 import apiClient from "./apiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -6,15 +5,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export const login = async (username, password) => {
   const response = await apiClient.post("/login", { username, password });
 
-  // Save token / cookie
-  if (response.data.token) {
-    await AsyncStorage.setItem("token", response.data.token);
-  }
-  if (response.headers["set-cookie"]) {
-    await AsyncStorage.setItem("cookie", response.headers["set-cookie"][0]);
+  if (response.data.jwt) {
+    await AsyncStorage.setItem("token", response.data.jwt);
   }
 
-  return response.data; 
+  return response.data;
 };
 
 // 🔹 Get Categories

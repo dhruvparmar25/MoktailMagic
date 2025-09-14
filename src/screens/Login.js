@@ -17,36 +17,36 @@ const Login = ({ navigation }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleLogin = async () => {
-    try {
-      const response = await login(username, password);
+const handleLogin = async () => {
+  try {
+    const response = await login(username, password);
+    console.log("Login Response:", response);
 
-      if (response.status === true) {
-        // Save JWT in AsyncStorage
-        await AsyncStorage.setItem("jwt", response.jwt);
+    if (response.jwt) {  
+      await AsyncStorage.setItem("token", response.jwt);
+      Toast.show({
+        type: "success",
+        text1: "Login Successful",
+        text2: response.message,
+      });
 
-        Toast.show({
-          type: "success",
-          text1: "Login Successful",
-          text2: response.message,
-        });
-
-        navigation.replace("Home");
-      } else {
-        Toast.show({
-          type: "error",
-          text1: "Login Failed",
-          text2: response.message,
-        });
-      }
-    } catch (error) {
+      navigation.replace("Home");
+    } else {
       Toast.show({
         type: "error",
-        text1: "Error",
-        text2: error.message,
+        text1: "Login Failed",
+        text2: response.message || "Invalid credentials",
       });
     }
-  };
+  } catch (error) {
+    Toast.show({
+      type: "error",
+      text1: "Error",
+      text2: error.message,
+    });
+  }
+};
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -75,10 +75,6 @@ const Login = ({ navigation }) => {
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
         <Text style={styles.buttonText}>Sign In</Text>
       </TouchableOpacity>
-
-      {/* <TouchableOpacity onPress={() => navigation.replace('Register')}>
-        <Text style={styles.link}>Don’t have an account? Sign Up</Text>
-      </TouchableOpacity> */}
     </SafeAreaView>
   );
 };
@@ -95,7 +91,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "700",
     color: "#000",
-    marginBottom: 40, // title ke niche zyada space
+    marginBottom: 40, 
   },
   input: {
     width: "100%",
@@ -104,7 +100,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    marginBottom: 20, // 👈 yaha gap diya inputs ke beech
+    marginBottom: 20, 
     color: "#000",
   },
   button: {
@@ -112,7 +108,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
     paddingVertical: 14,
     borderRadius: 8,
-    marginTop: 10, // button ke upar bhi gap
+    marginTop: 10, 
     marginBottom: 25,
   },
   buttonText: {

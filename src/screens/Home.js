@@ -8,8 +8,6 @@ import {
 } from "react-native";
 import { getCategories } from "../api/auth";
 
-
-
 const productsData = {
   Fruits: [
     { id: 1, name: "Apple", price: 100 },
@@ -28,14 +26,14 @@ const productsData = {
 export default function Home({ navigation }) {
   const [cart, setCart] = useState([]);
   const [paymentMode, setPaymentMode] = useState("Cash"); // default Cash
-
-   const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null); // 👈 add
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const data = await getCategories();
-        setCategories(data);
+        const res = await getCategories();
+        setCategories(res.data);
       } catch (err) {
         console.log("Error fetching categories:", err);
       }
@@ -115,33 +113,43 @@ export default function Home({ navigation }) {
   return (
     <View style={styles.container}>
       {/* Categories */}
-       <Text style={styles.title}>Categories</Text>
+      <Text style={styles.title}>Categories</Text>
 
-      <FlatList
-        data={categories}
-        keyExtractor={(item, index) => index.toString()}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.categoryBtn}
-            onPress={() => navigation.navigate("Products", { category: item })}
-          >
-            <Text style={styles.categoryText}>{item.name}</Text>
-          </TouchableOpacity>
-        )}
-      />
+   <FlatList
+  data={categories}
+  keyExtractor={(item) => item._id}
+  renderItem={({ item }) => (
+    <TouchableOpacity
+      style={[
+        styles.categoryBtn,
+        selectedCategory === item.name && styles.activeCategory,
+      ]}
+      onPress={() => setSelectedCategory(item.name)}
+    >
+      <Text
+        style={[
+          styles.categoryText,
+          selectedCategory === item.name && styles.activeCategoryText,
+        ]}
+      >
+        {item.name}
+      </Text>
+    </TouchableOpacity>
+  )}
+/>
+
 
       {/* Products */}
-      {categories ? (
-        <FlatList
-          data={productsData[categories]}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderProduct}
-        />
-      ) : (
-        <Text style={{ marginTop: 20 }}>
-          Select a category to view products
-        </Text>
-      )}
+   {selectedCategory ? (
+  <FlatList
+    data={productsData[selectedCategory]} // 👈 correct mapping
+    keyExtractor={(item) => item.id.toString()}
+    renderItem={renderProduct}
+  />
+) : (
+  <Text style={{ marginTop: 20 }}>Select a category to view products</Text>
+)}
+
 
       {/* Cart Summary */}
       <View style={styles.cartSummary}>
