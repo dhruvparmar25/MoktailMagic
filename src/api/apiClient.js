@@ -1,7 +1,7 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = "https://9bedeb8acdf2.ngrok-free.app/api";
+const API_URL = "http://localhost:3000/api";
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -17,10 +17,7 @@ apiClient.interceptors.request.use(
     const cookie = await AsyncStorage.getItem("cookie");
 
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    if (cookie) {
-      config.headers.Cookie = cookie;
+      config.headers.Authorization = token;
     }
 
     return config;

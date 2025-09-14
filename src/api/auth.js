@@ -1,3 +1,4 @@
+
 import apiClient from "./apiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -18,6 +19,6 @@ export const login = async (username, password) => {
 
 // 🔹 Get Categories
 export const getCategories = async () => {
-  const response = await apiClient.get("/categories");
+  const response = await apiClient.get("/category");
   return response.data;
 };
