@@ -1,7 +1,7 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = "http://localhost:3000/api";
+const API_URL = "https://api-moktail-magic.vatsalgajjar.site/api";
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -17,9 +17,10 @@ apiClient.interceptors.request.use(
     const cookie = await AsyncStorage.getItem("cookie");
 
     if (token) {
-      config.headers.Authorization = token;
+      config.headers.Authorization = ` ${token}`; // 👈 FIX
     }
 
+   
     return config;
   },
   (error) => Promise.reject(error)
