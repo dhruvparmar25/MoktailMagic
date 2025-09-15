@@ -23,7 +23,7 @@ const handleLogin = async () => {
     console.log("Login Response:", response);
 
     if (response.jwt) {  
-      await AsyncStorage.setItem("token", response.jwt);
+      await AsyncStorage.setItem("token", response.jwt);  
       Toast.show({
         type: "success",
         text1: "Login Successful",

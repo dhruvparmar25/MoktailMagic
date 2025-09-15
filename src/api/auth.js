@@ -17,3 +17,10 @@ export const getCategories = async () => {
   const response = await apiClient.get("/category");
   return response.data;
 };
+// 🔹 Get Products by Category
+export const getProductsByCategory = async (categoryId) => {
+  const response = await apiClient.post("/products", { categoryId });
+  return response.data;
+};
+
+
