@@ -6,28 +6,15 @@ import {
   FlatList,
   StyleSheet,
 } from "react-native";
-import { getCategories } from "../api/auth";
-
-const productsData = {
-  Fruits: [
-    { id: 1, name: "Apple", price: 100 },
-    { id: 2, name: "Banana", price: 50 },
-  ],
-  Vegetables: [
-    { id: 3, name: "Carrot", price: 40 },
-    { id: 4, name: "Tomato", price: 30 },
-  ],
-  Snacks: [
-    { id: 5, name: "Chips", price: 20 },
-    { id: 6, name: "Biscuits", price: 35 },
-  ],
-};
+import { getCategories, getProductsByCategory } from "../api/auth";
 
 export default function Home({ navigation }) {
   const [cart, setCart] = useState([]);
-  const [paymentMode, setPaymentMode] = useState("Cash"); // default Cash
+  const [paymentMode, setPaymentMode] = useState("Cash");
   const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null); // 👈 add
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [products, setProducts] = useState([]);   // 👈 products state
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,14 +28,28 @@ export default function Home({ navigation }) {
     fetchData();
   }, []);
 
-  // Product ko cart me qty ke sath add karna
+  // 🔹 Category select hote hi products fetch karna
+  const handleCategorySelect = async (category) => {
+    setSelectedCategory(category._id);
+    setLoading(true);
+    try {
+      const res = await getProductsByCategory(category._id);
+      setProducts(res.data);  // 👈 API se products
+    } catch (err) {
+      console.log("Error fetching products:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Cart me add karna
   const addToCart = (product) => {
-    const existingItem = cart.find((item) => item.id === product.id);
+    const existingItem = cart.find((item) => item._id === product._id);
 
     if (existingItem) {
       setCart(
         cart.map((item) =>
-          item.id === product.id ? { ...item, qty: item.qty + 1 } : item
+          item._id === product._id ? { ...item, qty: item.qty + 1 } : item
         )
       );
     } else {
@@ -57,20 +58,20 @@ export default function Home({ navigation }) {
   };
 
   const decreaseQty = (product) => {
-    const existingItem = cart.find((item) => item.id === product.id);
+    const existingItem = cart.find((item) => item._id === product._id);
     if (existingItem.qty === 1) {
-      setCart(cart.filter((item) => item.id !== product.id));
+      setCart(cart.filter((item) => item._id !== product._id));
     } else {
       setCart(
         cart.map((item) =>
-          item.id === product.id ? { ...item, qty: item.qty - 1 } : item
+          item._id === product._id ? { ...item, qty: item.qty - 1 } : item
         )
       );
     }
   };
 
   const renderProduct = ({ item }) => {
-    const cartItem = cart.find((c) => c.id === item.id);
+    const cartItem = cart.find((c) => c._id === item._id);
 
     return (
       <View style={styles.productCard}>
@@ -110,180 +111,200 @@ export default function Home({ navigation }) {
 
   const totalPrice = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
-  return (
-    <View style={styles.container}>
-      {/* Categories */}
-      <Text style={styles.title}>Categories</Text>
-
-   <FlatList
-  data={categories}
-  keyExtractor={(item) => item._id}
-  renderItem={({ item }) => (
-    <TouchableOpacity
-      style={[
-        styles.categoryBtn,
-        selectedCategory === item.name && styles.activeCategory,
-      ]}
-      onPress={() => setSelectedCategory(item.name)}
-    >
-      <Text
-        style={[
-          styles.categoryText,
-          selectedCategory === item.name && styles.activeCategoryText,
-        ]}
-      >
-        {item.name}
-      </Text>
-    </TouchableOpacity>
-  )}
-/>
-
-
-      {/* Products */}
-   {selectedCategory ? (
-  <FlatList
-    data={productsData[selectedCategory]} // 👈 correct mapping
-    keyExtractor={(item) => item.id.toString()}
-    renderItem={renderProduct}
-  />
-) : (
-  <Text style={{ marginTop: 20 }}>Select a category to view products</Text>
-)}
-
-
-      {/* Cart Summary */}
-      <View style={styles.cartSummary}>
-        <Text style={{ fontWeight: "bold", marginBottom: 10 }}>
-          Cart: {cart.length} items | Total: ₹{totalPrice}
-        </Text>
-
-        {cart.length > 0 && (
-          <>
-            {/* Payment Mode Selection */}
-            <View style={styles.paymentContainer}>
-              <Text style={{ fontWeight: "600", marginBottom: 5 }}>
-                Select Payment Mode:
-              </Text>
-
-              <View style={styles.paymentOptions}>
-                <TouchableOpacity
-                  style={styles.paymentOption}
-                  onPress={() => setPaymentMode("Cash")}
-                >
-                  <View
-                    style={[
-                      styles.radioCircle,
-                      paymentMode === "Cash" && styles.radioSelected,
-                    ]}
-                  />
-                  <Text style={styles.paymentText}>Cash</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.paymentOption}
-                  onPress={() => setPaymentMode("Online")}
-                >
-                  <View
-                    style={[
-                      styles.radioCircle,
-                      paymentMode === "Online" && styles.radioSelected,
-                    ]}
-                  />
-                  <Text style={styles.paymentText}>Online</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Checkout Button */}
-            <TouchableOpacity
-              style={styles.checkoutBtn}
-              onPress={() =>
-                navigation.navigate("Orders", {
-                  cart,
-                  total: totalPrice,
-                  paymentMode,
-                })
-              }
+    return (
+  <View style={styles.container}>
+    {/* Categories Box */}
+    <View style={styles.categoryBox}>
+      <FlatList
+        data={categories}
+        keyExtractor={(item) => item._id}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categoryList}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={[
+              styles.categoryBtn,
+              selectedCategory === item._id && styles.activeCategory,
+            ]}
+            onPress={() => handleCategorySelect(item)}
+          >
+            <Text
+              style={[
+                styles.categoryText,
+                selectedCategory === item._id && styles.activeCategoryText,
+              ]}
             >
-              <Text style={styles.checkoutText}>
-                Proceed to Pay ({paymentMode})
-              </Text>
-            </TouchableOpacity>
-          </>
+              {item.name}
+            </Text>
+          </TouchableOpacity>
         )}
-      </View>
+      />
     </View>
-  );
-}
 
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#fff" },
-  categoryContainer: { flexDirection: "row", justifyContent: "space-around" },
+    {/* Products Box */}
+    <View style={styles.productBox}>
+      {loading ? (
+        <Text style={{ marginTop: 20 }}>Loading products...</Text>
+      ) : products.length > 0 ? (
+        <FlatList
+          data={products}
+          keyExtractor={(item) => item._id}
+          renderItem={renderProduct}
+        />
+      ) : (
+        <Text style={{ marginTop: 20 }}>
+          {selectedCategory ? "No products found" : "Select a category"}
+        </Text>
+      )}
+    </View>
+
+    {/* Cart Summary */}
+    <View style={styles.cartSummary}>
+      <Text style={{ fontWeight: "bold", marginBottom: 10 }}>
+        Cart: {cart.length} items | Total: ₹{totalPrice}
+      </Text>
+
+          {cart.length > 0 && (
+            <>
+              {/* Payment Mode */}
+              <View style={styles.paymentContainer}>
+                <Text style={{ fontWeight: "600", marginBottom: 5 }}>
+                  Select Payment Mode:
+                </Text>
+
+                <View style={styles.paymentOptions}>
+                  <TouchableOpacity
+                    style={styles.paymentOption}
+                    onPress={() => setPaymentMode("Cash")}
+                  >
+                    <View
+                      style={[
+                        styles.radioCircle,
+                        paymentMode === "Cash" && styles.radioSelected,
+                      ]}
+                    />
+                    <Text style={styles.paymentText}>Cash</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.paymentOption}
+                    onPress={() => setPaymentMode("Online")}
+                  >
+                    <View
+                      style={[
+                        styles.radioCircle,
+                        paymentMode === "Online" && styles.radioSelected,
+                      ]}
+                    />
+                    <Text style={styles.paymentText}>Online</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Checkout */}
+              <TouchableOpacity
+                style={styles.checkoutBtn}
+                onPress={() =>
+                  navigation.navigate("Orders", {
+                    cart,
+                    total: totalPrice,
+                    paymentMode,
+                  })
+                }
+              >
+                <Text style={styles.checkoutText}>
+                  Proceed to Pay ({paymentMode})
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+
+  const styles = StyleSheet.create({
+      container: { flex: 1, padding: 15, backgroundColor: "#fff" },
+
+  // ✅ Category Box
+  categoryBox: {
+    padding: 12,
+    backgroundColor: "#f1f1f1",
+    borderRadius: 10,
+    marginBottom: 15,
+  },
+  categoryList: { paddingRight: 10 },
   categoryBtn: {
-    padding: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 20,
     borderColor: "#000",
+    marginRight: 10,
+    backgroundColor: "#fff",
   },
   activeCategory: { backgroundColor: "#000" },
-  categoryText: { color: "#000", fontWeight: "bold" },
+  categoryText: { color: "#000", fontWeight: "600" },
   activeCategoryText: { color: "#fff" },
+
+  // ✅ Product Box
+  productBox: {
+    flex: 1,
+    padding: 12,
+    backgroundColor: "#fafafa",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
   productCard: {
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: 15,
-    marginVertical: 8,
+    alignItems: "center",
+    padding: 12,
+    marginVertical: 6,
     borderWidth: 1,
     borderRadius: 8,
     borderColor: "#ccc",
+    backgroundColor: "#fff",
   },
   productText: { fontSize: 16, fontWeight: "500" },
-  cartBtn: {
-    backgroundColor: "#000",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  cartBtnText: { color: "#fff", fontWeight: "bold" },
-  qtyContainer: { flexDirection: "row", alignItems: "center" },
-  qtyBtn: {
-    backgroundColor: "#000",
-    paddingHorizontal: 10,
-    borderRadius: 6,
-  },
-  qtyText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
-  qtyValue: { marginHorizontal: 10, fontSize: 16, fontWeight: "600" },
+
+  // ✅ Cart Summary (neeche same)
   cartSummary: {
     padding: 15,
     borderTopWidth: 1,
     borderColor: "#ccc",
     marginTop: 10,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 12,
   },
-  paymentContainer: { marginVertical: 10 },
-  paymentOptions: { flexDirection: "row", marginTop: 5 },
-  paymentOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: 20,
-  },
-  radioCircle: {
-    height: 18,
-    width: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: "#000",
-    marginRight: 8,
-  },
-  radioSelected: {
-    backgroundColor: "#000",
-  },
-  paymentText: { fontSize: 14 },
-  checkoutBtn: {
-    backgroundColor: "#000",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 10,
-    alignItems: "center",
-  },
-  checkoutText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-});
+    paymentContainer: { marginVertical: 10 },
+    paymentOptions: { flexDirection: "row", marginTop: 5 },
+    paymentOption: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginRight: 20,
+    },
+    radioCircle: {
+      height: 18,
+      width: 18,
+      borderRadius: 9,
+      borderWidth: 2,
+      borderColor: "#000",
+      marginRight: 8,
+    },
+    radioSelected: {
+      backgroundColor: "#000",
+    },
+    paymentText: { fontSize: 14 },
+    checkoutBtn: {
+      backgroundColor: "#000",
+      padding: 12,
+      borderRadius: 8,
+      marginTop: 10,
+      alignItems: "center",
+    },
+    checkoutText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  });
