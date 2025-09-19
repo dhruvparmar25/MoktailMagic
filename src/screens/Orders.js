@@ -1,41 +1,52 @@
 import React from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
 import Toast from "react-native-toast-message";
 
 export default function Orders({ route, navigation }) {
-  const { cart, paymentMode } = route.params;
+  const { orderDetails } = route.params;
+  console.log("orderDetails",orderDetails);
+  
+
+  // Products ko map karke name, price aur quantity show karenge
+  const products = orderDetails.data.products.map((item) => ({
+
+    
+    id: item.productId._id || item.productId,
+    name: item.productId.title || "Product",
+    price: item.productId.assign_price || 0,
+    qty: item.quantity,
+  }));
+
+  const totalPrice = products.reduce((sum, item) => sum + item.price * item.qty, 0);
+
 
   const handleComplete = () => {
     Toast.show({
-    type: "success",
-    text1: "Order Completed ✅",
-    text2: `Your order with ${paymentMode} payment is placed successfully.`,
-    position: "bottom",
-    visibilityTime: 2000,
-  });
-  setTimeout(() => {
-    navigation.replace("Home"); // Home pe wapas
-  }, 2100);
+      type: "success",
+      text1: "Order Completed ✅",
+      text2: `Your order with ${orderDetails.data.paymentMode} payment is placed successfully.`,
+      position: "bottom",
+      visibilityTime: 2000,
+    });
+    setTimeout(() => navigation.replace("Home"), 2100);
   };
 
   const handleRemove = () => {
-   Toast.show({
-    type: "error",
-    text1: "Order Removed ❌",
-    text2: "Your order has been removed.",
-    position: "bottom",
-    visibilityTime: 2000,
-  });
-  setTimeout(() => {
-    navigation.replace("Home"); // Home pe wapas
-  }, 2100);
+    Toast.show({
+      type: "error",
+      text1: "Order Removed ❌",
+      text2: "Your order has been removed.",
+      position: "bottom",
+      visibilityTime: 2000,
+    });
+    setTimeout(() => navigation.replace("Home"), 2100);
   };
 
   const renderItem = ({ item }) => (
-    <View style={styles.itemRow}>
-      <Text style={styles.itemText}>
-        {item.name} x {item.qty} = ₹{item.price * item.qty}
-      </Text>
+    <View style={styles.productCard}>
+      <Text style={styles.productName}>{item.name}</Text>
+      <Text style={styles.productQty}>Qty: {item.qty}</Text>
+      <Text style={styles.productPrice}>₹{item.price * item.qty}</Text>
     </View>
   );
 
@@ -44,26 +55,23 @@ export default function Orders({ route, navigation }) {
       <Text style={styles.title}>Your Order</Text>
 
       <FlatList
-        data={cart}
+        data={products}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
-        style={{ marginVertical: 10 }}
+        contentContainerStyle={{ paddingBottom: 20 }}
       />
 
-      <Text style={styles.summaryText}>Payment: {paymentMode}</Text>
+      <View style={styles.summaryContainer}>
+        <Text style={styles.summaryText}>Payment Mode: {orderDetails.data.paymentMode}</Text>
+        <Text style={styles.summaryText}>Total Price: ₹{totalPrice}</Text>
+      </View>
 
       <View style={styles.btnRow}>
-        <TouchableOpacity
-          style={[styles.btn, { backgroundColor: "green" }]}
-          onPress={handleComplete}
-        >
+        <TouchableOpacity style={[styles.btn, { backgroundColor: "green" }]} onPress={handleComplete}>
           <Text style={styles.btnText}>Complete</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.btn, { backgroundColor: "red" }]}
-          onPress={handleRemove}
-        >
+        <TouchableOpacity style={[styles.btn, { backgroundColor: "red" }]} onPress={handleRemove}>
           <Text style={styles.btnText}>Remove</Text>
         </TouchableOpacity>
       </View>
@@ -72,25 +80,82 @@ export default function Orders({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#fff" },
-  title: { fontSize: 20, fontWeight: "bold", marginBottom: 10 },
-  itemRow: {
-    padding: 10,
-    borderBottomWidth: 1,
-    borderColor: "#ddd",
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: "#f7f7f7",
   },
-  itemText: { fontSize: 16 },
+  title: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 15,
+    color: "#333",
+  },
+  productCard: {
+    backgroundColor: "#fff",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  productName: {
+    fontSize: 16,
+    fontWeight: "600",
+    flex: 1,
+  },
+  productQty: {
+    fontSize: 14,
+    color: "#555",
+    marginHorizontal: 10,
+  },
+  productPrice: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1e90ff",
+  },
+  summaryContainer: {
+    marginTop: 15,
+    padding: 15,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  summaryText: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 5,
+    color: "#333",
+  },
   btnRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
+    justifyContent: "space-between",
     marginTop: 20,
   },
   btn: {
-    padding: 12,
-    borderRadius: 8,
-    width: "40%",
+    flex: 0.48,
+    paddingVertical: 12,
+    borderRadius: 10,
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
-  btnText: { color: "#fff", fontWeight: "bold" },
-  summaryText: { fontSize: 16, fontWeight: "600", marginTop: 10 },
+  btnText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
 });

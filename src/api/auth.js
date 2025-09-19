@@ -23,4 +23,17 @@ export const getProductsByCategory = async (categoryId) => {
   return response.data;
 };
 
+// 🔹 Place Order
+export const placeOrder = async (paymentMode, products) => {
+  const response = await apiClient.post("/orders", {
+    paymentMode,
+    products: products.map((item) => ({
+      productId: item._id,
+      quantity: item.qty,
+    })),
+  });
+
+  return response.data;
+};
+
 
