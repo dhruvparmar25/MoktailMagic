@@ -24,16 +24,22 @@ export const getProductsByCategory = async (categoryId) => {
 };
 
 // 🔹 Place Order
-export const placeOrder = async (paymentMode, products) => {
+export const placeOrder = async (paymentMode, products,totalAmount) => {
+  // const totalAmount = products.reduce((sum, item) => sum + (item.assign_price || item.price) * item.qty, 0);
+
   const response = await apiClient.post("/orders", {
     paymentMode,
     products: products.map((item) => ({
-      productId: item._id,
+      productId: item._id || item.id,
       quantity: item.qty,
     })),
+    totalAmount, // ✅ totalAmount API me bheja
   });
 
   return response.data;
 };
+
+
+
 
 

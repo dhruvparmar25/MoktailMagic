@@ -42,7 +42,7 @@ const handleLogin = async () => {
     Toast.show({
       type: "error",
       text1: "Error",
-      text2: error.message,
+      text2: error.response?.data?.message || error.message,
     });
   }
 };

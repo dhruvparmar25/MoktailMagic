@@ -207,14 +207,14 @@ export default function Home({ navigation }) {
             </View>
 
             {/* Checkout */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={styles.checkoutBtn}
               onPress={async () => {
                 try {
                   // Home.js me checkout ke baad
-const res = await placeOrder(paymentMode.toUpperCase(), cart);
-setCart([]); // cart clear
-navigation.navigate("Orders", { orderDetails: res });
+                  const res = await placeOrder(paymentMode.toUpperCase(), cart);
+                  setCart([]); // cart clear
+                  navigation.navigate("Orders", { orderDetails: res });
 
                 } catch (err) {
                   console.log("Error placing order:", err);
@@ -224,8 +224,8 @@ navigation.navigate("Orders", { orderDetails: res });
               <Text style={styles.checkoutText}>
                 Proceed to Pay ({paymentMode})
               </Text>
-            </TouchableOpacity>
-            {/* <TouchableOpacity
+            </TouchableOpacity> */}
+             <TouchableOpacity
                 style={styles.checkoutBtn}
                 onPress={() =>
                   navigation.navigate("Orders", {
@@ -238,7 +238,7 @@ navigation.navigate("Orders", { orderDetails: res });
                 <Text style={styles.checkoutText}>
                   Proceed to Pay ({paymentMode})
                 </Text>
-              </TouchableOpacity> */}
+              </TouchableOpacity> 
           </>
         )}
       </View>
@@ -329,4 +329,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   checkoutText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+    qtyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: 100, // adjust as per requirement
+    padding: 5,
+    backgroundColor: '#fff', // white background
+  },
+  qtyBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 5,
+    backgroundColor: '#000', // black button
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtyText: {
+    color: '#fff', // white text on black button
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  qtyValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#000', // black text for quantity
+    marginHorizontal: 10,
+  },
 });
