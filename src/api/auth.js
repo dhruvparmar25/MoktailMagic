@@ -39,7 +39,19 @@ export const placeOrder = async (paymentMode, products,totalAmount) => {
   return response.data;
 };
 
+// 🔹 Get Orders (new)
+export const getOrders = async () => {
+  const token = await AsyncStorage.getItem("token"); // token fetch from storage
+  console.log("token",token);
+  
+  const response = await apiClient.get("/orders", {
+    
+    headers: {
+      Authorization: `Token ${token}`, // ✅ Token header
+    },
+  });
 
+  return response.data;};
 
 
 

@@ -25,7 +25,7 @@ const handleComplete = async () => {
       visibilityTime: 2000,
     });
 
-    setTimeout(() => navigation.replace("Home"), 2100);
+    setTimeout(() => navigation.replace("OrderDetail"), 2100);
   } catch (err) {
     console.log("Error placing order:", err);
     console.log(err.response?.data);
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 20,
-        marginBottom:10,
+        marginBottom:30,
 
   },
   btn: {

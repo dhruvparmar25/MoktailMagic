@@ -8,21 +8,26 @@ import Home from "./src/screens/Home";
 import Cart from "./src/screens/Cart";
 import Orders from "./src/screens/Orders";
 import Toast from "react-native-toast-message";
+import OrderDetail from "./src/screens/OrderDetail";
+import OrderSummary from "./src/screens/OrderSummary";
 export default function App() {
   const Stack = createStackNavigator();
 
   return (
-<>
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Login">
-        <Stack.Screen name="Login" component={Login} />
-        <Stack.Screen name="Home" component={Home} />
-        <Stack.Screen name="Cart" component={Cart} />
-        <Stack.Screen name="Orders" component={Orders} />
-      </Stack.Navigator>
-    </NavigationContainer>
-     <Toast />
-</>
+    <>
+      <NavigationContainer>
+        <Stack.Navigator initialRouteName="Login">
+          <Stack.Screen name="Login" component={Login} />
+          <Stack.Screen name="Home" component={Home} options={{ headerShown: false }}   />
+          <Stack.Screen name="Cart" component={Cart} />
+          <Stack.Screen name="Orders" component={Orders} />
+          <Stack.Screen name="OrderDetail" component={OrderDetail} />
+          <Stack.Screen name="OrderSummary" component={OrderSummary} />
+
+        </Stack.Navigator>
+      </NavigationContainer>
+      <Toast />
+    </>
   );
 }
 

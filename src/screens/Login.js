@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import {
   View,
   TextInput,
@@ -17,36 +16,46 @@ const Login = ({ navigation }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-const handleLogin = async () => {
-  try {
-    const response = await login(username, password);
-    console.log("Login Response:", response);
+  // ----------- Token check for auto-login -----------
+  useEffect(() => {
+    const checkToken = async () => {
+      const token = await AsyncStorage.getItem("token");
+      if (token) {
+        navigation.replace("Home"); // Already logged in
+      }
+    };
+    checkToken();
+  }, []);
+  // ---------------------------------------------------
 
-    if (response.jwt) {  
-      await AsyncStorage.setItem("token", response.jwt);  
-      Toast.show({
-        type: "success",
-        text1: "Login Successful",
-        text2: response.message,
-      });
+  const handleLogin = async () => {
+    try {
+      const response = await login(username, password);
+      console.log("Login Response:", response);
 
-      navigation.replace("Home");
-    } else {
+      if (response.jwt) {
+        await AsyncStorage.setItem("token", response.jwt);
+        Toast.show({
+          type: "success",
+          text1: "Login Successful",
+          text2: response.message,
+        });
+        navigation.replace("Home");
+      } else {
+        Toast.show({
+          type: "error",
+          text1: "Login Failed",
+          text2: response.message || "Invalid credentials",
+        });
+      }
+    } catch (error) {
       Toast.show({
         type: "error",
-        text1: "Login Failed",
-        text2: response.message || "Invalid credentials",
+        text1: "Error",
+        text2: error.response?.data?.message || error.message,
       });
     }
-  } catch (error) {
-    Toast.show({
-      type: "error",
-      text1: "Error",
-      text2: error.response?.data?.message || error.message,
-    });
-  }
-};
-
+  };
 
   return (
     <SafeAreaView style={styles.container}>
