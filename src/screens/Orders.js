@@ -7,38 +7,38 @@ import { getCategories, getProductsByCategory, placeOrder } from "../api/auth";
 export default function Orders({ route, navigation }) {
   const { cart, total, paymentMode } = route.params;
   console.log({
-  paymentMode: paymentMode.toUpperCase(),
-  products: cart.map(item => ({ productId: item._id, quantity: item.qty })),
-  totalAmount: total
-});
+    paymentMode: paymentMode.toUpperCase(),
+    products: cart.map(item => ({ productId: item._id, quantity: item.qty })),
+    totalAmount: total
+  });
 
 
-const handleComplete = async () => {
-  try {
-    const res = await placeOrder(paymentMode.toUpperCase(), cart, total); // total ko pass karo
+  const handleComplete = async () => {
+    try {
+      const res = await placeOrder(paymentMode.toUpperCase(), cart, total); // total ko pass karo
 
-    Toast.show({
-      type: "success",
-      text1: "Order Completed ✅",
-      text2: `Your order with ${paymentMode} payment is placed successfully.`,
-      position: "bottom",
-      visibilityTime: 2000,
-    });
+      Toast.show({
+        type: "success",
+        text1: "Order Completed ✅",
+        text2: `Your order with ${paymentMode} payment is placed successfully.`,
+        position: "bottom",
+        visibilityTime: 2000,
+      });
 
-    setTimeout(() => navigation.replace("OrderDetail"), 2100);
-  } catch (err) {
-    console.log("Error placing order:", err);
-    console.log(err.response?.data);
+      setTimeout(() => navigation.replace("OrderDetail"), 2100);
+    } catch (err) {
+      console.log("Error placing order:", err);
+      console.log(err.response?.data);
 
-    Toast.show({
-      type: "error",
-      text1: "Order Failed ❌",
-      text2: "Something went wrong. Try again.",
-      position: "bottom",
-      visibilityTime: 2000,
-    });
-  }
-};
+      Toast.show({
+        type: "error",
+        text1: "Order Failed ❌",
+        text2: "Something went wrong. Try again.",
+        position: "bottom",
+        visibilityTime: 2000,
+      });
+    }
+  };
 
 
 
@@ -67,7 +67,7 @@ const handleComplete = async () => {
 
       <FlatList
         data={cart}
-        keyExtractor={(item) => item._id || item.id.toString()}
+        keyExtractor={(item, index) => item._id ? item._id.toString() + index : index.toString()}
         renderItem={renderItem}
         contentContainerStyle={{ paddingBottom: 20 }}
       />
@@ -77,15 +77,15 @@ const handleComplete = async () => {
         <Text style={styles.summaryText}>Total Price: ₹{total}</Text>
       </View>
 
-  <View style={styles.btnRow}>
-  <TouchableOpacity style={[styles.btn, { backgroundColor: "green" }]} onPress={handleComplete}>
-    <Text style={styles.btnText}>Complete</Text>
-  </TouchableOpacity>
+      <View style={styles.btnRow}>
+        <TouchableOpacity style={[styles.btn, { backgroundColor: "green" }]} onPress={handleComplete}>
+          <Text style={styles.btnText}>Complete</Text>
+        </TouchableOpacity>
 
-  <TouchableOpacity style={[styles.btn, { backgroundColor: "red" }]} onPress={handleRemove}>
-    <Text style={styles.btnText}>Remove</Text>
-  </TouchableOpacity>
-</View>
+        <TouchableOpacity style={[styles.btn, { backgroundColor: "red" }]} onPress={handleRemove}>
+          <Text style={styles.btnText}>Remove</Text>
+        </TouchableOpacity>
+      </View>
 
     </View>
   );
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 20,
-        marginBottom:30,
+    marginBottom: 30,
 
   },
   btn: {

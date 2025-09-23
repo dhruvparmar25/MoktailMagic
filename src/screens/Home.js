@@ -6,6 +6,7 @@ import {
   FlatList,
   StyleSheet,
   SafeAreaView,
+  TextInput, 
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
@@ -18,6 +19,8 @@ export default function Home({ navigation }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [filteredProducts, setFilteredProducts] = useState(products || []);
 
   // ------------- Logout function -------------
   const handleLogout = async () => {
@@ -50,6 +53,18 @@ export default function Home({ navigation }) {
     };
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!searchText) {
+      setFilteredProducts(products);
+    } else {
+      const filtered = products.filter((p) =>
+        p.title.toLowerCase().includes(searchText.toLowerCase())
+      );
+      setFilteredProducts(filtered);
+    }
+  }, [searchText, products]);
+
 
   const handleCategorySelect = async (category) => {
     setSelectedCategory(category._id);
@@ -93,7 +108,10 @@ export default function Home({ navigation }) {
   const renderProduct = ({ item }) => {
     const cartItem = cart.find((c) => c._id === item._id);
     return (
+      
+      
       <View style={styles.productCard}>
+
         <Text style={styles.productText}>
           {item.title} - ₹{item.assign_price}
         </Text>
@@ -135,9 +153,24 @@ export default function Home({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      
       {/* -------- Header with Logout -------- */}
       <View style={styles.header}>
+
         <Text style={styles.headerTitle}>Home</Text>
+        <TouchableOpacity
+  style={styles.orderBtn}
+  onPress={() =>
+    navigation.navigate("OrderDetail", {
+      cart: cart,
+      total: totalPrice,
+      paymentMode: paymentMode,
+    })
+  }
+>
+  <Text style={styles.orderBtnText}>View Order Details</Text>
+</TouchableOpacity>
+
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
@@ -145,35 +178,56 @@ export default function Home({ navigation }) {
 
       {/* -------- Categories -------- */}
       <View style={styles.categoryBox}>
+  <FlatList
+    data={categories}
+    keyExtractor={(item) => item._id}
+    numColumns={2} // 👈 grid ke liye
+    columnWrapperStyle={styles.row} // row ke liye styling
+    showsVerticalScrollIndicator={false}
+    renderItem={({ item }) => (
+      <TouchableOpacity
+        style={[
+          styles.categoryBtn,
+          selectedCategory === item._id && styles.activeCategory,
+        ]}
+        onPress={() => handleCategorySelect(item)}
+      >
+        <Text
+          style={[
+            styles.categoryText,
+            selectedCategory === item._id && styles.activeCategoryText,
+          ]}
+        >
+          {item.name}
+        </Text>
+      </TouchableOpacity>
+    )}
+  />
+</View>
+{/* -------------- search --------------- */}
+  <View style={styles.productBox}>
+      <TextInput
+        placeholder="Search products..."
+        value={searchText}
+        onChangeText={setSearchText}
+        style={styles.searchInput}
+      />
+
+      {filteredProducts.length > 0 ? (
         <FlatList
-          data={categories}
+          data={filteredProducts}
           keyExtractor={(item) => item._id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryList}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.categoryBtn,
-                selectedCategory === item._id && styles.activeCategory,
-              ]}
-              onPress={() => handleCategorySelect(item)}
-            >
-              <Text
-                style={[
-                  styles.categoryText,
-                  selectedCategory === item._id && styles.activeCategoryText,
-                ]}
-              >
-                {item.name}
-              </Text>
-            </TouchableOpacity>
-          )}
+          renderItem={renderProduct}
         />
-      </View>
+      ) : (
+        <Text style={{ marginTop: 20 }}>
+          {searchText ? "No products found" : "Select a category"}
+        </Text>
+      )}
+    </View>
 
       {/* -------- Products -------- */}
-      <View style={styles.productBox}>
+      {/* <View style={styles.productBox}>
         {loading ? (
           <Text style={{ marginTop: 20 }}>Loading products...</Text>
         ) : products.length > 0 ? (
@@ -187,7 +241,7 @@ export default function Home({ navigation }) {
             {selectedCategory ? "No products found" : "Select a category"}
           </Text>
         )}
-      </View>
+      </View> */}
 
       {/* -------- Cart Summary -------- */}
       <View style={styles.cartSummary}>
@@ -253,6 +307,19 @@ export default function Home({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 15, backgroundColor: "#fff" },
+  orderBtn: {
+  backgroundColor: "gray",
+  padding: 5,
+  borderRadius: 8,
+  marginVertical: 10,
+  alignItems: "center",
+},
+orderBtnText: {
+  color: "#fff",
+  fontWeight: "bold",
+  fontSize: 16,
+},
+
 
   // ---------- Header ----------
 header: {
@@ -275,54 +342,69 @@ header: {
   logoutText: { color: "#fff", fontWeight: "bold" },
 
   // ---------- Category Box ----------
-  categoryBox: {
-    padding: 12,
-    backgroundColor: "#f1f1f1",
-    borderRadius: 10,
-    marginBottom: 15,
-  },
-  categoryList: { paddingRight: 10 },
-  categoryBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderWidth: 1,
-    borderRadius: 20,
-    borderColor: "#000",
-    marginRight: 10,
-    backgroundColor: "#fff",
-  },
-  activeCategory: { backgroundColor: "#000" },
-  categoryText: { color: "#000", fontWeight: "600" },
-  activeCategoryText: { color: "#fff" },
+categoryBox: { 
+  padding: 12,
+  backgroundColor: "#f1f1f1",
+  borderRadius: 10,
+  marginBottom: 15,
+},
+row: {
+  justifyContent: "space-between", // 2 column me spacing
+  marginBottom: 10,
+},
+categoryBtn: {
+  flex: 1, // taki equally space le
+  paddingVertical: 10,
+  paddingHorizontal: 18,
+  borderWidth: 1,
+  borderRadius: 20,
+  borderColor: "#000",
+  marginHorizontal: 5,
+  backgroundColor: "#fff",
+},
+activeCategory: { backgroundColor: "#000" },
+categoryText: { color: "#000", fontWeight: "600", textAlign: "center" },
+activeCategoryText: { color: "#fff" },
+
 
   // ---------- Product Box ----------
-  productBox: {
-    flex: 1,
-    padding: 12,
-    backgroundColor: "#fafafa",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#eee",
-  },
-  productCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 12,
-    marginVertical: 6,
-    borderWidth: 1,
-    borderRadius: 8,
-    borderColor: "#ccc",
-    backgroundColor: "#fff",
-  },
-  productText: { fontSize: 16, fontWeight: "500" },
-  cartBtn: {
-    backgroundColor: "#000",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 5,
-  },
-  cartBtnText: { color: "#fff", fontWeight: "bold" },
+productBox: {
+  flex: 1,
+  padding: 8,          // thoda kam padding
+  backgroundColor: "#fafafa",
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: "#eee",
+},
+productCard: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: 8,           // chhota card
+  marginVertical: 4,
+  borderWidth: 1,
+  borderRadius: 6,
+  borderColor: "#ccc",
+  backgroundColor: "#fff",
+},
+productText: { fontSize: 14, fontWeight: "500" }, // chhota text
+cartBtn: {
+  backgroundColor: "#000",
+  paddingVertical: 4,
+  paddingHorizontal: 8,
+  borderRadius: 4,
+},
+cartBtnText: { color: "#fff", fontWeight: "bold", fontSize: 12 },
+searchInput: {
+  height: 40,
+  borderWidth: 1,
+  borderColor: "#ccc",
+  borderRadius: 8,
+  paddingHorizontal: 10,
+  marginBottom: 8,
+  backgroundColor: "#fff",
+},
+
 
   // ---------- Cart Summary ----------
   cartSummary: {

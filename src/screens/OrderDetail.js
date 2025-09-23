@@ -1,66 +1,137 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Modal,
+  Button,
+  Platform,
+} from "react-native";
 import Toast from "react-native-toast-message";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { getOrders } from "../api/auth";
 
 export default function OrderDetail({ navigation }) {
   const [orders, setOrders] = useState([]);
+  const [filteredOrders, setFilteredOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showPicker, setShowPicker] = useState(false);
+
+  // Filter orders by selected date
+  const filterOrdersByDate = (date) => {
+    const filtered = orders.filter((order) => {
+      const orderDate = new Date(order.createdAt);
+      return (
+        orderDate.getFullYear() === date.getFullYear() &&
+        orderDate.getMonth() === date.getMonth() &&
+        orderDate.getDate() === date.getDate()
+      );
+    });
+    setFilteredOrders(filtered);
+  };
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const response = await getOrders(); // API response {status:true, data:[...orders]}
-        if (response.status) {
-          // Agar API ek object me single order de raha hai
-          const orderArray = Array.isArray(response.data) ? response.data : [response.data];
-          console.log("orderArray",orderArray);
-          
-          setOrders(orderArray);
-        } else {
-          setOrders([]);
-        }
-      } catch (err) {
-        console.log("Error fetching orders:", err);
-        Toast.show({
-          type: "error",
-          text1: "Failed to fetch orders",
-          text2: "Please try again later",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+  const init = async () => {
+    await fetchOrders(1, false);
+    filterOrdersByDate(new Date()); // ✅ Default today
+  };
+  init();
+}, []);
 
-    fetchOrders();
+  // Fetch orders from API
+  const fetchOrders = async (pageNo = 1, append = false) => {
+    try {
+      if (pageNo === 1) setLoading(true);
+      else setLoadingMore(true);
+
+      const response = await getOrders(pageNo, 10);
+
+      if (response.status) {
+        const orderArray = Array.isArray(response.data.docs)
+          ? response.data.docs
+          : [response.data.docs];
+
+        setOrders((prev) => (append ? [...prev, ...orderArray] : orderArray));
+        filterOrdersByDate(selectedDate);
+        setHasNextPage(response.data.hasNextPage);
+      } else {
+        setOrders([]);
+      }
+    } catch (err) {
+      console.log("Error fetching orders:", err);
+      Toast.show({
+        type: "error",
+        text1: "Failed to fetch orders",
+        text2: "Please try again later",
+      });
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders(1, false);
   }, []);
 
-const renderOrder = ({ item }) => {
-  console.log("item",item);
-  const products = item.products || []; // fallback
-  const totalPrice = products.reduce(
-    (sum, p) => sum + ((p.assign_price || p.price || 0) * (p.quantity || 0)),
-    0
-  );
+  const loadMore = () => {
+    if (hasNextPage && !loadingMore) {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      fetchOrders(nextPage, true);
+    }
+  };
 
-
-  return (
-    <TouchableOpacity
-      style={styles.orderCard}
-      onPress={() => navigation.navigate("OrderSummary", { order: item })}
-    >
-     
-      
-      <Text style={styles.orderId}>Order ID: {item._id}</Text>
-      <Text>Payment Mode: {item.paymentMode}</Text>
-      <Text>Total Items: {products.length}</Text>
-      <Text>Total Price: ₹{totalPrice}</Text>
-    </TouchableOpacity>
-  );
+ const onDateChange = (event, date) => {
+  if (date) {
+    setSelectedDate(date);
+    filterOrdersByDate(date); // ✅ Filter orders by selected date
+  }
+  setShowPicker(Platform.OS === "ios");
 };
 
 
-  if (loading) {
+  const renderOrder = ({ item }) => {
+    const products = item.products || [];
+    const totalPrice = products.reduce(
+      (sum, p) => sum + ((p.productId?.assign_price || 0) * (p.quantity || 0)),
+      0
+    );
+
+    const orderDate = new Date(item.updatedAt);
+    const formattedDate = `${("0" + orderDate.getDate()).slice(-2)}-${(
+      "0" +
+      (orderDate.getMonth() + 1)
+    ).slice(-2)}-${orderDate.getFullYear()}`;
+    const formattedTime = orderDate.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+    return (
+      <TouchableOpacity
+        style={styles.orderCard}
+        onPress={() => navigation.navigate("OrderSummary", { order: item })}
+      >
+        <Text style={styles.orderId}>
+          {formattedDate}, {formattedTime}
+        </Text>
+        <Text>Payment Mode: {item.paymentMode}</Text>
+        <Text>Total Items: {products.length}</Text>
+        <Text>Total Price: ₹{totalPrice}</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  if (loading && page === 1) {
     return (
       <View style={styles.loader}>
         <ActivityIndicator size="large" color="#00A86B" />
@@ -68,40 +139,53 @@ const renderOrder = ({ item }) => {
     );
   }
 
-  if (orders.length === 0) {
-    return (
-      <View style={styles.empty}>
-        <Text style={styles.emptyText}>No orders found</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <Text style={styles.title}>My Orders</Text>
-   <FlatList
-  data={orders}
-  keyExtractor={(item) => item._id || Math.random().toString()} // fallback
-  renderItem={renderOrder}
-/>
 
+      <Button title="Select Date" onPress={() => setShowPicker(true)} />
+
+      {showPicker && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="default"
+          onChange={onDateChange}
+        />
+      )}
+
+      {filteredOrders.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>No orders found for this date</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredOrders}
+          keyExtractor={(item, index) => `${item._id}_${index}`}
+          renderItem={renderOrder}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loadingMore ? <ActivityIndicator size="small" color="#00A86B" /> : null
+          }
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#fff" },
-  title: { fontSize: 22, fontWeight: "bold", marginBottom: 16, textAlign: "center" },
+  container: { flex: 1, padding: 15 },
+  title: { fontSize: 20, fontWeight: "bold", marginBottom: 10 },
   orderCard: {
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#fff",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    elevation: 2,
   },
-  orderId: { fontWeight: "bold", marginBottom: 4 },
+  orderId: { fontWeight: "bold", marginBottom: 5 },
   loader: { flex: 1, justifyContent: "center", alignItems: "center" },
   empty: { flex: 1, justifyContent: "center", alignItems: "center" },
-  emptyText: { fontSize: 18, color: "#999" },
+  emptyText: { fontSize: 16, color: "#555" },
 });
