@@ -11,10 +11,14 @@ import {
 } from "react-native";
 import { login } from "../api/auth";
 import Toast from "react-native-toast-message";
+import { FontAwesome6 } from '@expo/vector-icons';
+
 
 const Login = ({ navigation }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
 
   // ----------- Token check for auto-login -----------
   useEffect(() => {
@@ -35,12 +39,12 @@ const Login = ({ navigation }) => {
 
       if (response.jwt) {
         await AsyncStorage.setItem("token", response.jwt);
+        navigation.replace("Home");
         Toast.show({
           type: "success",
           text1: "Login Successful",
           text2: response.message,
         });
-        navigation.replace("Home");
       } else {
         Toast.show({
           type: "error",
@@ -58,33 +62,40 @@ const Login = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+<SafeAreaView style={styles.container}>
+  <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      <Text style={styles.title}>Login</Text>
+  <Text style={styles.title}>Login</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Username or Email"
-        placeholderTextColor="#555"
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
-      />
+  <TextInput
+    style={styles.input}
+    placeholder="Username or Email"
+    placeholderTextColor="#555"
+    value={username}
+    onChangeText={setUsername}
+    autoCapitalize="none"
+  />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#555"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+  {/* Password field with eye icon */}
+  <View style={styles.passwordContainer}>
+    <TextInput
+      style={styles.passwordInput}
+      placeholder="Password"
+      placeholderTextColor="#555"
+      value={password}
+      onChangeText={setPassword}
+      secureTextEntry={!showPassword}
+    />
+    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+      <FontAwesome6 name={showPassword ? 'eye' : 'eye-slash'} size={18} style={styles.eyeIcon} />
+    </TouchableOpacity>
+  </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Sign In</Text>
-      </TouchableOpacity>
-    </SafeAreaView>
+  <TouchableOpacity style={styles.button} onPress={handleLogin}>
+    <Text style={styles.buttonText}>Sign In</Text>
+  </TouchableOpacity>
+</SafeAreaView>
+
   );
 };
 
@@ -100,7 +111,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "700",
     color: "#000",
-    marginBottom: 40, 
+    marginBottom: 40,
   },
   input: {
     width: "100%",
@@ -109,7 +120,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    marginBottom: 20, 
+    marginBottom: 20,
     color: "#000",
   },
   button: {
@@ -117,7 +128,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
     paddingVertical: 14,
     borderRadius: 8,
-    marginTop: 10, 
+    marginTop: 10,
     marginBottom: 25,
   },
   buttonText: {
@@ -131,6 +142,28 @@ const styles = StyleSheet.create({
     color: "#000",
     textDecorationLine: "underline",
   },
+  passwordContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  width: '100%',
+  borderWidth: 1,
+  borderColor: '#000',
+  borderRadius: 8,
+  marginBottom: 20,
+  paddingRight: 12, // sirf right me thoda space eye icon ke liye
+},
+passwordInput: {
+  flex: 1,
+  paddingVertical: 12,
+  paddingLeft: 12, // left padding input ke liye
+  fontSize: 16,
+  color: '#000',
+},
+eyeIcon: {
+  marginLeft: 8,
+  color: '#000',
+}
+
 });
 
 export default Login;
