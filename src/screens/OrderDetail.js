@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Modal,
   Button,
   Platform,
 } from "react-native";
@@ -21,12 +20,12 @@ export default function OrderDetail({ navigation }) {
   const [page, setPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date()); // ✅ default today
   const [showPicker, setShowPicker] = useState(false);
 
   // Filter orders by selected date
-  const filterOrdersByDate = (date) => {
-    const filtered = orders.filter((order) => {
+  const filterOrdersByDate = (date, ordersList = orders) => {
+    const filtered = ordersList.filter((order) => {
       const orderDate = new Date(order.createdAt);
       return (
         orderDate.getFullYear() === date.getFullYear() &&
@@ -36,14 +35,6 @@ export default function OrderDetail({ navigation }) {
     });
     setFilteredOrders(filtered);
   };
-
-  useEffect(() => {
-  const init = async () => {
-    await fetchOrders(1, false);
-    filterOrdersByDate(new Date()); // ✅ Default today
-  };
-  init();
-}, []);
 
   // Fetch orders from API
   const fetchOrders = async (pageNo = 1, append = false) => {
@@ -59,10 +50,11 @@ export default function OrderDetail({ navigation }) {
           : [response.data.docs];
 
         setOrders((prev) => (append ? [...prev, ...orderArray] : orderArray));
-        filterOrdersByDate(selectedDate);
+        filterOrdersByDate(selectedDate, append ? [...orders, ...orderArray] : orderArray);
         setHasNextPage(response.data.hasNextPage);
       } else {
         setOrders([]);
+        setFilteredOrders([]);
       }
     } catch (err) {
       console.log("Error fetching orders:", err);
@@ -78,7 +70,7 @@ export default function OrderDetail({ navigation }) {
   };
 
   useEffect(() => {
-    fetchOrders(1, false);
+    fetchOrders(1, false); // ✅ load orders on component mount
   }, []);
 
   const loadMore = () => {
@@ -89,14 +81,13 @@ export default function OrderDetail({ navigation }) {
     }
   };
 
- const onDateChange = (event, date) => {
-  if (date) {
-    setSelectedDate(date);
-    filterOrdersByDate(date); // ✅ Filter orders by selected date
-  }
-  setShowPicker(Platform.OS === "ios");
-};
-
+  const onDateChange = (event, date) => {
+    if (date) {
+      setSelectedDate(date);
+      filterOrdersByDate(date); // ✅ filter by new selected date
+    }
+    setShowPicker(Platform.OS === "ios"); // hide picker for Android
+  };
 
   const renderOrder = ({ item }) => {
     const products = item.products || [];
@@ -143,7 +134,10 @@ export default function OrderDetail({ navigation }) {
     <View style={styles.container}>
       <Text style={styles.title}>My Orders</Text>
 
-      <Button title="Select Date" onPress={() => setShowPicker(true)} />
+      <Button
+        title={`Selected Date: ${selectedDate.toLocaleDateString()}`}
+        onPress={() => setShowPicker(true)}
+      />
 
       {showPicker && (
         <DateTimePicker
