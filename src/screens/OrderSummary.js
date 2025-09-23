@@ -4,18 +4,24 @@ import { View, Text, FlatList, StyleSheet } from "react-native";
 export default function OrderSummary({ route }) {
   const { order } = route.params;
 
-  const renderItem = ({ item }) => (
-    <View style={styles.itemCard}>
-      <Text style={styles.itemName}>{item.title || item.name}</Text>
-      <Text>Qty: {item.quantity}</Text>
-      <Text>Price: ₹{(item.assign_price || item.price) * item.quantity}</Text>
-    </View>
-  );
+  console.log("summary",order);
+  
+  
 
-  const totalPrice = order.products.reduce(
-    (sum, p) => sum + (p.assign_price || p.price) * p.quantity,
-    0
-  );
+  const renderItem = ({ item }) => (
+  <View style={styles.itemCard}>
+    <Text style={styles.itemName}>{item.productId?.title}</Text>
+    <Text>Qty: {item.quantity}</Text>
+    <Text>Price: ₹{(item.productId?.assign_price || item.productId?.price) * item.quantity}</Text>
+  </View>
+);
+
+
+const totalPrice = order.products.reduce(
+  (sum, p) => sum + ((p.productId?.assign_price || p.productId?.price) * p.quantity),
+  0
+);
+
 
   return (
     <View style={styles.container}>

@@ -108,10 +108,11 @@ export default function OrderDetail({ navigation }) {
     });
 
     return (
-      <TouchableOpacity
-        style={styles.orderCard}
-        onPress={() => navigation.navigate("OrderSummary", { order: item })}
-      >
+    <TouchableOpacity
+  style={styles.orderCard}
+  onPress={() => navigation.navigate("OrderSummary", { order: item })} // ✅ selected order send
+>
+
         <Text style={styles.orderId}>
           {formattedDate}, {formattedTime}
         </Text>

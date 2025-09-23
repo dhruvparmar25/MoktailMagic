@@ -52,6 +52,19 @@ export const getOrders = async () => {
   });
 
   return response.data;};
+  // 🔹 Get single order by ID
+export const getOrderById = async (orderId) => {
+  const token = await AsyncStorage.getItem("token");
+
+  const response = await apiClient.get(`/orders/${orderId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`, // ✅ Bearer token
+    },
+  });
+
+  return response.data;
+};
+
 
 
 
