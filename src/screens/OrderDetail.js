@@ -131,46 +131,57 @@ export default function OrderDetail({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>My Orders</Text>
+<View style={styles.container}>
+  {/* Header row: Title + Home button */}
+  <View style={styles.headerRow}>
+    <Text style={styles.title}>My Orders</Text>
+    <TouchableOpacity
+      style={styles.orderBtn}
+      onPress={() => navigation.navigate("Home")}
+    >
+      <Text style={styles.homeBtn}>Home</Text>
+    </TouchableOpacity>
+  </View>
 
-      <Button
-        title={`Selected Date: ${selectedDate.toLocaleDateString()}`}
-        onPress={() => setShowPicker(true)}
-      />
+  {/* Date Picker */}
+  <Button
+    title={`Selected Date: ${selectedDate.toLocaleDateString()}`}
+    onPress={() => setShowPicker(true)}
+  />
 
-      {showPicker && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="date"
-          display="default"
-          onChange={onDateChange}
-        />
-      )}
+  {showPicker && (
+    <DateTimePicker
+      value={selectedDate}
+      mode="date"
+      display="default"
+      onChange={onDateChange}
+    />
+  )}
 
-      {filteredOrders.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>No orders found for this date</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredOrders}
-          keyExtractor={(item, index) => `${item._id}_${index}`}
-          renderItem={renderOrder}
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={
-            loadingMore ? <ActivityIndicator size="small" color="#00A86B" /> : null
-          }
-        />
-      )}
+  {/* Orders List */}
+  {filteredOrders.length === 0 ? (
+    <View style={styles.empty}>
+      <Text style={styles.emptyText}>No orders found for this date</Text>
     </View>
+  ) : (
+    <FlatList
+      data={filteredOrders}
+      keyExtractor={(item, index) => `${item._id}_${index}`}
+      renderItem={renderOrder}
+      onEndReached={loadMore}
+      onEndReachedThreshold={0.5}
+      ListFooterComponent={
+        loadingMore ? <ActivityIndicator size="small" color="#00A86B" /> : null
+      }
+    />
+  )}
+</View>
+
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 15 },
-  title: { fontSize: 20, fontWeight: "bold", marginBottom: 10 },
   orderCard: {
     backgroundColor: "#fff",
     padding: 15,
@@ -182,4 +193,25 @@ const styles = StyleSheet.create({
   loader: { flex: 1, justifyContent: "center", alignItems: "center" },
   empty: { flex: 1, justifyContent: "center", alignItems: "center" },
   emptyText: { fontSize: 16, color: "#555" },
+  headerRow: {
+  flexDirection: "row",
+  justifyContent: "space-between", // Title left, Home button right
+  alignItems: "center",
+  marginBottom: 10,
+},
+title: {
+  fontSize: 20,
+  fontWeight: "bold",
+},
+orderBtn: {
+  backgroundColor: "#000",
+  paddingVertical: 6,
+  paddingHorizontal: 12,
+  borderRadius: 5,
+},
+homeBtn: {
+  color: "#fff",
+  fontWeight: "bold",
+},
+
 });
