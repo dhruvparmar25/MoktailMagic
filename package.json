@@ -30,5 +30,8 @@
     "react-native-toast-message": "^2.3.3",
     "react-native-web": "^0.21.0"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "react-native-make": "^1.0.1"
+  }
 }
