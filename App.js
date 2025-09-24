@@ -15,6 +15,7 @@ export default function App() {
 
   return (
     <>
+    
       <NavigationContainer>
         <Stack.Navigator initialRouteName="Login">
           <Stack.Screen name="Login" component={Login} />
@@ -23,7 +24,6 @@ export default function App() {
           <Stack.Screen name="Orders" component={Orders} />
           <Stack.Screen name="OrderDetail" component={OrderDetail} />
           <Stack.Screen name="OrderSummary" component={OrderSummary} />
-
         </Stack.Navigator>
       </NavigationContainer>
       <Toast />
