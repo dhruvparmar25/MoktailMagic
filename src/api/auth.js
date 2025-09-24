@@ -24,7 +24,7 @@ export const getProductsByCategory = async (categoryId) => {
 };
 
 // 🔹 Place Order
-export const placeOrder = async (paymentMode, products,totalAmount) => {
+export const placeOrder = async (paymentMode, products, totalAmount) => {
   // const totalAmount = products.reduce((sum, item) => sum + (item.assign_price || item.price) * item.qty, 0);
 
   const response = await apiClient.post("/orders", {
@@ -40,19 +40,35 @@ export const placeOrder = async (paymentMode, products,totalAmount) => {
 };
 
 // 🔹 Get Orders (new)
-export const getOrders = async () => {
-  const token = await AsyncStorage.getItem("token"); // token fetch from storage
-  console.log("token",token);
-  
-  const response = await apiClient.get("/orders", {
-    
-    headers: {
-      Authorization: `Token ${token}`, // ✅ Token header
-    },
+export const getOrders = async (startDate, endDate, page, limit) => {
+  let queryString = `?`;
+
+  if (startDate) {
+    queryString += `startDate=${startDate}`;
+  }
+
+  if (endDate) {
+    queryString += (startDate ? `&` : '') + `endDate=${endDate}`;
+  }
+
+  if (page) {
+    queryString += (startDate || endDate ? `&` : '') + `page=${page}`;
+  }
+
+  if (limit) {
+    queryString += (startDate || endDate || page ? `&` : '') + `limit=${limit}`;
+  }
+
+  const response = await apiClient.get(`/orders${queryString !== '?' ? queryString : ''}`, {
+
+    // headers: {
+    //   Authorization: `${token}`, // ✅ Bearer header
+    // },
   });
 
-  return response.data;};
-  // 🔹 Get single order by ID
+  return response.data;
+};
+// 🔹 Get single order by ID
 export const getOrderById = async (orderId) => {
   const token = await AsyncStorage.getItem("token");
 

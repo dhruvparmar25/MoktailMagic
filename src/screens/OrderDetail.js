@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -15,81 +15,76 @@ import { getOrders } from "../api/auth";
 
 export default function OrderDetail({ navigation }) {
   const [orders, setOrders] = useState([]);
-  const [filteredOrders, setFilteredOrders] = useState([]);
+  const [totalOrders, setTotalOrders] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date()); // ✅ default today
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
 
-  // Filter orders by selected date
-  const filterOrdersByDate = (date, ordersList = orders) => {
-    const filtered = ordersList.filter((order) => {
-      const orderDate = new Date(order.createdAt);
-      return (
-        orderDate.getFullYear() === date.getFullYear() &&
-        orderDate.getMonth() === date.getMonth() &&
-        orderDate.getDate() === date.getDate()
-      );
-    });
-    setFilteredOrders(filtered);
-  };
+  // ---------------- Fetch Orders ----------------
+  const fetchOrders = useCallback(
+    async (pageNo = 1, append = false, date = selectedDate) => {
+      try {
+        if (pageNo === 1) setLoading(true);
+        else setLoadingMore(true);
 
-  // Fetch orders from API
-  const fetchOrders = async (pageNo = 1, append = false) => {
-    try {
-      if (pageNo === 1) setLoading(true);
-      else setLoadingMore(true);
+        const formattedDate = date.toISOString().split("T")[0]; // YYYY-MM-DD
+        const response = await getOrders(formattedDate, formattedDate, pageNo, 10);
 
-      const response = await getOrders(pageNo, 10);
+        if (response.status) {
+          setTotalOrders(response.data.totalDocs || 0);
+          const orderArray = Array.isArray(response.data.docs)
+            ? response.data.docs
+            : [response.data.docs];
 
-      if (response.status) {
-        const orderArray = Array.isArray(response.data.docs)
-          ? response.data.docs
-          : [response.data.docs];
-
-        setOrders((prev) => (append ? [...prev, ...orderArray] : orderArray));
-        filterOrdersByDate(selectedDate, append ? [...orders, ...orderArray] : orderArray);
-        setHasNextPage(response.data.hasNextPage);
-      } else {
-        setOrders([]);
-        setFilteredOrders([]);
+          setOrders(prev => (append ? [...prev, ...orderArray] : orderArray));
+          setHasNextPage(response.data.hasNextPage);
+        } else {
+          setOrders([]);
+          setHasNextPage(false);
+        }
+      } catch (err) {
+        console.log("Error fetching orders:", err);
+        Toast.show({
+          type: "error",
+          text1: "Failed to fetch orders",
+          text2: "Please try again later",
+        });
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
       }
-    } catch (err) {
-      console.log("Error fetching orders:", err);
-      Toast.show({
-        type: "error",
-        text1: "Failed to fetch orders",
-        text2: "Please try again later",
-      });
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  };
+    },
+    [selectedDate]
+  );
 
+  // ---------------- Initial Load ----------------
   useEffect(() => {
-    fetchOrders(1, false); // ✅ load orders on component mount
-  }, []);
+    fetchOrders(1, false);
+  }, [fetchOrders]);
 
+  // ---------------- Load More ----------------
   const loadMore = () => {
-    if (hasNextPage && !loadingMore) {
-      const nextPage = page + 1;
-      setPage(nextPage);
-      fetchOrders(nextPage, true);
-    }
+    if (!hasNextPage || loadingMore) return; // guard
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchOrders(nextPage, true);
   };
 
+  // ---------------- Date Picker ----------------
   const onDateChange = (event, date) => {
     if (date) {
       setSelectedDate(date);
-      filterOrdersByDate(date); // ✅ filter by new selected date
+      setPage(1); // reset pagination
+      fetchOrders(1, false, date);
     }
-    setShowPicker(Platform.OS === "ios"); // hide picker for Android
+    setShowPicker(Platform.OS === "ios");
   };
 
-  const renderOrder = ({ item }) => {
+  // ---------------- Render Single Order ----------------
+  const renderOrder = ({ item, index }) => {
     const products = item.products || [];
     const totalPrice = products.reduce(
       (sum, p) => sum + ((p.productId?.assign_price || 0) * (p.quantity || 0)),
@@ -108,11 +103,11 @@ export default function OrderDetail({ navigation }) {
     });
 
     return (
-    <TouchableOpacity
-  style={styles.orderCard}
-  onPress={() => navigation.navigate("OrderSummary", { order: item })} // ✅ selected order send
->
-
+      <TouchableOpacity
+        style={styles.orderCard}
+        onPress={() => navigation.navigate("OrderSummary", { order: item })}
+      >
+        <Text>{index}</Text>
         <Text style={styles.orderId}>
           {formattedDate}, {formattedTime}
         </Text>
@@ -123,6 +118,7 @@ export default function OrderDetail({ navigation }) {
     );
   };
 
+  // ---------------- Loading State ----------------
   if (loading && page === 1) {
     return (
       <View style={styles.loader}>
@@ -131,56 +127,57 @@ export default function OrderDetail({ navigation }) {
     );
   }
 
+  // ---------------- Render ----------------
   return (
-<View style={styles.container}>
-  {/* Header row: Title + Home button */}
-  <View style={styles.headerRow}>
-    <Text style={styles.title}>My Orders</Text>
-    <TouchableOpacity
-      style={styles.orderBtn}
-      onPress={() => navigation.navigate("Home")}
-    >
-      <Text style={styles.homeBtn}>Home</Text>
-    </TouchableOpacity>
-  </View>
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>My Orders ({totalOrders})</Text>
+        <TouchableOpacity
+          style={styles.orderBtn}
+          onPress={() => navigation.navigate("Home")}
+        >
+          <Text style={styles.homeBtn}>Home</Text>
+        </TouchableOpacity>
+      </View>
 
-  {/* Date Picker */}
-  <Button
-    title={`Selected Date: ${selectedDate.toLocaleDateString()}`}
-    onPress={() => setShowPicker(true)}
-  />
+      {/* Date Picker */}
+      <Button
+        title={`Selected Date: ${selectedDate.toLocaleDateString()}`}
+        onPress={() => setShowPicker(true)}
+      />
 
-  {showPicker && (
-    <DateTimePicker
-      value={selectedDate}
-      mode="date"
-      display="default"
-      onChange={onDateChange}
-    />
-  )}
+      {showPicker && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="default"
+          onChange={onDateChange}
+        />
+      )}
 
-  {/* Orders List */}
-  {filteredOrders.length === 0 ? (
-    <View style={styles.empty}>
-      <Text style={styles.emptyText}>No orders found for this date</Text>
+      {/* Orders List */}
+      {orders.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>No orders found for this date</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={orders}
+          keyExtractor={(item, index) => `${item._id}_${index}`}
+          renderItem={renderOrder}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.3} // triggers earlier for better UX
+          ListFooterComponent={
+            loadingMore ? <ActivityIndicator size="small" color="#00A86B" /> : null
+          }
+        />
+      )}
     </View>
-  ) : (
-    <FlatList
-      data={filteredOrders}
-      keyExtractor={(item, index) => `${item._id}_${index}`}
-      renderItem={renderOrder}
-      onEndReached={loadMore}
-      onEndReachedThreshold={0.5}
-      ListFooterComponent={
-        loadingMore ? <ActivityIndicator size="small" color="#00A86B" /> : null
-      }
-    />
-  )}
-</View>
-
   );
 }
 
+// ---------------- Styles ----------------
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 15 },
   orderCard: {
@@ -195,24 +192,24 @@ const styles = StyleSheet.create({
   empty: { flex: 1, justifyContent: "center", alignItems: "center" },
   emptyText: { fontSize: 16, color: "#555" },
   headerRow: {
-  flexDirection: "row",
-  justifyContent: "space-between", // Title left, Home button right
-  alignItems: "center",
-  marginBottom: 10,
-},
-title: {
-  fontSize: 20,
-  fontWeight: "bold",
-},
-orderBtn: {
-  backgroundColor: "#000",
-  paddingVertical: 6,
-  paddingHorizontal: 12,
-  borderRadius: 5,
-},
-homeBtn: {
-  color: "#fff",
-  fontWeight: "bold",
-},
+    flexDirection: "row",
+    justifyContent: "space-between", // Title left, Home button right
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  orderBtn: {
+    backgroundColor: "#000",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 5,
+  },
+  homeBtn: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
 
 });
