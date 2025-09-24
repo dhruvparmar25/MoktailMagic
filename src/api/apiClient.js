@@ -17,10 +17,8 @@ apiClient.interceptors.request.use(
     const cookie = await AsyncStorage.getItem("cookie");
 
     if (token) {
-      config.headers.Authorization = ` ${token}`; // 👈 FIX
+      config.headers.Authorization = `${token}`; // 👈 FIX
     }
-
-   
     return config;
   },
   (error) => Promise.reject(error)

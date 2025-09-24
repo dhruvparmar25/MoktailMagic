@@ -107,7 +107,6 @@ export default function OrderDetail({ navigation }) {
         style={styles.orderCard}
         onPress={() => navigation.navigate("OrderSummary", { order: item })}
       >
-        <Text>{index}</Text>
         <Text style={styles.orderId}>
           {formattedDate}, {formattedTime}
         </Text>
