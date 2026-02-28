@@ -1,176 +1,214 @@
-import React from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { View, Text, FlatList, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import Toast from "react-native-toast-message";
-import { getCategories, getProductsByCategory, placeOrder } from "../api/auth";
-
+import { placeOrder } from "../api/auth";
+import { PrimaryButton, AppHeader } from "../components";
+import { colors, spacing, borderRadius, typography } from "../theme";
 
 export default function Orders({ route, navigation }) {
-  const { cart, total, paymentMode } = route.params;
-  console.log({
-    paymentMode: paymentMode.toUpperCase(),
-    products: cart.map(item => ({ productId: item._id, quantity: item.qty })),
-    totalAmount: total
-  });
-
+  const { cart, total, paymentMode } = route.params ?? {};
+  const [loading, setLoading] = useState(false);
 
   const handleComplete = async () => {
+    if (!cart?.length) return;
+    setLoading(true);
     try {
-      const res = await placeOrder(paymentMode.toUpperCase(), cart, total); // total ko pass karo
-
+      await placeOrder(
+        (paymentMode || "CASH").toString().toUpperCase(),
+        cart,
+        total
+      );
       Toast.show({
         type: "success",
-        text1: "Order Completed ✅",
-        text2: `Your order with ${paymentMode} payment is placed successfully.`,
-        position: "bottom",
-        visibilityTime: 2000,
+        text1: "Order placed",
+        text2: `Payment: ${paymentMode}. Thank you!`,
       });
-
-      setTimeout(() => navigation.replace("OrderDetail"), 2100);
+      setTimeout(() => navigation.replace("OrderDetail"), 600);
     } catch (err) {
-      console.log("Error placing order:", err);
-      console.log(err.response?.data);
-
       Toast.show({
         type: "error",
-        text1: "Order Failed ❌",
-        text2: "Something went wrong. Try again.",
-        position: "bottom",
-        visibilityTime: 2000,
+        text1: "Order failed",
+        text2: err.response?.data?.message ?? err.message ?? "Try again.",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
-
-
   const handleRemove = () => {
-    Toast.show({
-      type: "error",
-      text1: "Order Removed ❌",
-      text2: "Your order has been removed.",
-      position: "bottom",
-      visibilityTime: 2000,
-    });
-    setTimeout(() => navigation.replace("Home"), 2100);
+    Toast.show({ type: "info", text1: "Order cancelled" });
+    setTimeout(() => navigation.replace("Home"), 400);
   };
 
-  const renderItem = ({ item }) => (
-    <View style={styles.productCard}>
-      <Text style={styles.productName}>{item.title || item.name}</Text>
-      <Text style={styles.productQty}>Qty: {item.qty}</Text>
-      <Text style={styles.productPrice}>₹{item.assign_price * item.qty || item.price * item.qty}</Text>
-    </View>
+  const renderItem = ({ item, index }) => (
+    <Animated.View
+      entering={FadeInDown.delay(index * 40).duration(280)}
+      style={styles.row}
+    >
+      <View style={styles.rowLeft}>
+        <Text style={styles.itemName} numberOfLines={2}>
+          {item.title ?? item.name}
+        </Text>
+        <Text style={styles.itemMeta}>
+          {item.qty} × ₹{item.assign_price ?? item.price}
+        </Text>
+      </View>
+      <Text style={styles.itemTotal}>
+        ₹{(item.assign_price ?? item.price) * item.qty}
+      </Text>
+    </Animated.View>
   );
+
+  const paymentLabel = (paymentMode || "Cash").toString();
+  const isOnline = paymentLabel.toLowerCase() === "online";
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Your Order</Text>
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <AppHeader
+          title="Confirm order"
+          showBack
+          onBackPress={() => navigation.goBack()}
+        />
 
-      <FlatList
-        data={cart}
-        keyExtractor={(item, index) => item._id ? item._id.toString() + index : index.toString()}
-        renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 20 }}
-      />
+        <FlatList
+          data={cart ?? []}
+          keyExtractor={(item) => item._id + (item.qty ?? 0)}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          ListHeaderComponent={
+            <View style={styles.paymentBadgeWrap}>
+              <View
+                style={[
+                  styles.paymentBadge,
+                  isOnline && styles.paymentBadgeOnline,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.paymentBadgeText,
+                    isOnline && styles.paymentBadgeTextOnline,
+                  ]}
+                >
+                  {paymentLabel}
+                </Text>
+              </View>
+            </View>
+          }
+        />
 
-      <View style={styles.summaryContainer}>
-        <Text style={styles.summaryText}>Payment Mode: {paymentMode}</Text>
-        <Text style={styles.summaryText}>Total Price: ₹{total}</Text>
-      </View>
-
-      <View style={styles.btnRow}>
-        <TouchableOpacity style={[styles.btn, { backgroundColor: "green" }]} onPress={handleComplete}>
-          <Text style={styles.btnText}>Complete</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.btn, { backgroundColor: "red" }]} onPress={handleRemove}>
-          <Text style={styles.btnText}>Remove</Text>
-        </TouchableOpacity>
-      </View>
-
+        <View style={styles.footer}>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={styles.totalAmount}>₹{total ?? 0}</Text>
+          </View>
+          <View style={styles.buttons}>
+            <PrimaryButton
+              label="Complete"
+              onPress={handleComplete}
+              loading={loading}
+              variant="success"
+              style={styles.btn}
+            />
+            <PrimaryButton
+              label="Cancel"
+              onPress={handleRemove}
+              variant="ghost"
+              style={styles.btn}
+            />
+          </View>
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: "#f7f7f7",
+    backgroundColor: colors.background,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 15,
-    color: "#333",
-  },
-  productCard: {
-    backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  productName: {
-    fontSize: 16,
-    fontWeight: "600",
+  safe: {
     flex: 1,
   },
-  productQty: {
-    fontSize: 14,
-    color: "#555",
-    marginHorizontal: 10,
+  list: {
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.lg,
   },
-  productPrice: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "black",
+  paymentBadgeWrap: {
+    marginBottom: spacing.md,
   },
-  summaryContainer: {
-    marginTop: 10,
-    padding: 15,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+  paymentBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.secondaryMuted,
   },
-  summaryText: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 5,
-    color: "#333",
+  paymentBadgeOnline: {
+    backgroundColor: colors.accentMuted,
   },
-  btnRow: {
+  paymentBadgeText: {
+    ...typography.captionMedium,
+    color: colors.secondary,
+  },
+  paymentBadgeTextOnline: {
+    color: colors.accent,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.xs,
+  },
+  rowLeft: {
+    flex: 1,
+  },
+  itemName: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+  },
+  itemMeta: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  itemTotal: {
+    ...typography.h3,
+    color: colors.textPrimary,
+  },
+  footer: {
+    padding: spacing.sm,
+    paddingBottom: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    backgroundColor: colors.surface,
+  },
+  totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 20,
-    marginBottom: 30,
-
+    alignItems: "center",
+    marginBottom: spacing.sm,
+  },
+  totalLabel: {
+    ...typography.bodyMedium,
+    color: colors.textSecondary,
+  },
+  totalAmount: {
+    ...typography.h1,
+    color: colors.textPrimary,
+  },
+  buttons: {
+    flexDirection: "row",
+    gap: spacing.sm,
   },
   btn: {
-    flex: 0.48,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  btnText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 16,
+    flex: 1,
   },
 });

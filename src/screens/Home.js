@@ -1,17 +1,28 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
   FlatList,
   StyleSheet,
-  SafeAreaView,
   TextInput,
-  useColorScheme,
+  RefreshControl,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
+import { Ionicons } from "@expo/vector-icons";
 import { getCategories, getProductsByCategory } from "../api/auth";
+import {
+  AppHeader,
+  CategoryPill,
+  ProductCard,
+  FloatingCartBar,
+  PaymentToggle,
+  ProductGridSkeleton,
+} from "../components";
+import { colors, spacing, borderRadius, typography } from "../theme";
+
+const STAFF_NAME_KEY = "staffName";
 
 export default function Home({ navigation }) {
   const [cart, setCart] = useState([]);
@@ -20,464 +31,290 @@ export default function Home({ navigation }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchText, setSearchText] = useState("");
-  const [filteredProducts, setFilteredProducts] = useState(products || []);
+  const [staffName, setStaffName] = useState("");
+  const [filteredProducts, setFilteredProducts] = useState([]);
 
-  const isDarkMode = useColorScheme() === 'dark';
-
-
-  // ------------- Logout function -------------
-  const handleLogout = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
-      await AsyncStorage.removeItem("token");
-      Toast.show({
-        type: "success",
-        text1: "Logged Out",
-        text2: "You have been successfully logged out",
-      });
-      navigation.replace("Login");
-    } catch (error) {
+      const res = await getCategories();
+      setCategories(res.data || []);
+    } catch (err) {
       Toast.show({
         type: "error",
         text1: "Error",
-        text2: error.message,
+        text2: "Could not load categories",
       });
     }
-  };
-  // ------------------------------------------
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await getCategories();
-        setCategories(res.data);
-      } catch (err) {
-        console.log("Error fetching categories:", err);
-      }
-    };
-    fetchData();
   }, []);
 
   useEffect(() => {
-    if (!searchText) {
+    fetchCategories();
+    AsyncStorage.getItem(STAFF_NAME_KEY).then((name) => setStaffName(name || ""));
+  }, [fetchCategories]);
+
+  useEffect(() => {
+    if (!searchText.trim()) {
       setFilteredProducts(products);
     } else {
-      const filtered = products.filter((p) =>
-        p.title.toLowerCase().includes(searchText.toLowerCase())
+      const q = searchText.toLowerCase();
+      setFilteredProducts(
+        products.filter(
+          (p) =>
+            (p.title || "").toLowerCase().includes(q) ||
+            (p.name || "").toLowerCase().includes(q)
+        )
       );
-      setFilteredProducts(filtered);
     }
   }, [searchText, products]);
 
+  const handleCategorySelect = useCallback(
+    async (category) => {
+      const id = category._id;
+      if (selectedCategory === id) return;
+      setSelectedCategory(id);
+      setLoading(true);
+      try {
+        const res = await getProductsByCategory(id);
+        setProducts(res.data || []);
+      } catch (err) {
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: "Could not load products",
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [selectedCategory]
+  );
 
-  const handleCategorySelect = async (category) => {
-    setSelectedCategory(category._id);
-    setLoading(true);
-    try {
-      const res = await getProductsByCategory(category._id);
-      setProducts(res.data);
-    } catch (err) {
-      console.log("Error fetching products:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const addToCart = useCallback((product) => {
+    setCart((prev) => {
+      const existing = prev.find((i) => i._id === product._id);
+      if (existing) {
+        return prev.map((i) =>
+          i._id === product._id ? { ...i, qty: i.qty + 1 } : i
+        );
+      }
+      return [...prev, { ...product, qty: 1 }];
+    });
+  }, []);
 
-  const addToCart = (product) => {
-    const existingItem = cart.find((item) => item._id === product._id);
-    if (existingItem) {
-      setCart(
-        cart.map((item) =>
-          item._id === product._id ? { ...item, qty: item.qty + 1 } : item
-        )
+  const decreaseQty = useCallback((product) => {
+    setCart((prev) => {
+      const existing = prev.find((i) => i._id === product._id);
+      if (!existing) return prev;
+      if (existing.qty === 1) {
+        return prev.filter((i) => i._id !== product._id);
+      }
+      return prev.map((i) =>
+        i._id === product._id ? { ...i, qty: i.qty - 1 } : i
       );
-    } else {
-      setCart([...cart, { ...product, qty: 1 }]);
-    }
-  };
+    });
+  }, []);
 
-  const decreaseQty = (product) => {
-    const existingItem = cart.find((item) => item._id === product._id);
-    if (existingItem.qty === 1) {
-      setCart(cart.filter((item) => item._id !== product._id));
-    } else {
-      setCart(
-        cart.map((item) =>
-          item._id === product._id ? { ...item, qty: item.qty - 1 } : item
-        )
-      );
-    }
-  };
-
-  const renderProduct = ({ item }) => {
-    const cartItem = cart.find((c) => c._id === item._id);
-    return (
-
-
-      <View style={styles.productCard}>
-
-        <Text style={styles.productText}>
-          {item.title} - ₹{item.assign_price}
-        </Text>
-
-        {cartItem ? (
-          <View style={styles.qtyContainer}>
-            <TouchableOpacity
-              style={styles.qtyBtn}
-              onPress={() => decreaseQty(item)}
-            >
-              <Text style={styles.qtyText}>-</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.qtyValue}>{cartItem.qty}</Text>
-
-            <TouchableOpacity
-              style={styles.qtyBtn}
-              onPress={() => addToCart(item)}
-            >
-              <Text style={styles.qtyText}>+</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={styles.cartBtn}
-            onPress={() => addToCart(item)}
-          >
-            <Text style={styles.cartBtnText}>Add to Cart</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  };
-
-  const totalPrice = cart.reduce(
-    (sum, item) => sum + item.assign_price * item.qty,
+  const totalAmount = cart.reduce(
+    (sum, item) => sum + (item.assign_price ?? item.price ?? 0) * item.qty,
     0
+  );
+  const itemCount = cart.reduce((s, i) => s + i.qty, 0);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchCategories();
+    if (selectedCategory) {
+      try {
+        const res = await getProductsByCategory(selectedCategory);
+        setProducts(res.data || []);
+      } catch (_) {}
+    }
+    setRefreshing(false);
+  }, [fetchCategories, selectedCategory]);
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem("token");
+      Toast.show({ type: "success", text1: "Logged out" });
+      navigation.replace("Login");
+    } catch (e) {
+      Toast.show({ type: "error", text1: "Error", text2: e.message });
+    }
+  };
+
+  const handleProceedToPay = () => {
+    if (itemCount === 0) return;
+    navigation.navigate("Orders", {
+      cart,
+      total: totalAmount,
+      paymentMode,
+    });
+  };
+
+  const renderProduct = useCallback(
+    ({ item, index }) => {
+      const cartItem = cart.find((c) => c._id === item._id);
+      return (
+        <ProductCard
+          item={item}
+          quantity={cartItem?.qty ?? 0}
+          onAdd={addToCart}
+          onDecrease={decreaseQty}
+          index={index}
+        />
+      );
+    },
+    [cart, addToCart, decreaseQty]
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-
-      {/* -------- Header with Logout -------- */}
-      <View style={styles.header}>
-
-        <Text style={styles.headerTitle}>Home</Text>
-        <TouchableOpacity
-          style={styles.orderBtn}
-          onPress={() =>
-            navigation.navigate("OrderDetail", {
-              cart: cart,
-              total: totalPrice,
-              paymentMode: paymentMode,
-            })
-          }
-        >
-          <Text style={styles.orderBtnText}>View Order Details</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* -------- Categories -------- */}
-      <View style={styles.categoryBox}>
-        <FlatList
-          data={categories}
-          keyExtractor={(item) => item._id}
-          numColumns={2} // 👈 grid ke liye
-          columnWrapperStyle={styles.row} // row ke liye styling
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.categoryBtn,
-                selectedCategory === item._id && styles.activeCategory,
-              ]}
-              onPress={() => handleCategorySelect(item)}
-            >
-              <Text
-                style={[
-                  styles.categoryText,
-                  selectedCategory === item._id && styles.activeCategoryText,
-                ]}
-              >
-                {item.name}
-              </Text>
-            </TouchableOpacity>
-          )}
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <AppHeader
+          title={staffName ? `Hello, ${staffName}` : "Hello"}
+          subtitle="What would you like to order?"
+          rightAction="Logout"
+          onRightPress={handleLogout}
         />
-      </View>
-      {/* -------------- search --------------- */}
-      <View style={styles.productBox}>
-       <TextInput
-  placeholder="Search products..."
-  placeholderTextColor={isDarkMode ? "#ccc" : "#555"} 
-  value={searchText}
-  onChangeText={setSearchText}
-  style={[
-    styles.searchInput,
-    { backgroundColor: isDarkMode ? "#222" : "#fff", color: isDarkMode ? "#fff" : "#000" }
-  ]}
-/>
 
-        {filteredProducts.length > 0 ? (
-          <FlatList
-            data={filteredProducts}
-            keyExtractor={(item) => item._id}
-            renderItem={renderProduct}
+        <View style={styles.searchWrap}>
+          <Ionicons
+            name="search-outline"
+            size={20}
+            color={colors.textTertiary}
+            style={styles.searchIcon}
           />
-        ) : (
-          <Text style={{ marginTop: 20 }}>
-            {searchText ? "No products found" : "Select a category"}
-          </Text>
-        )}
-      </View>
-
-      {/* -------- Products -------- */}
-      {/* <View style={styles.productBox}>
-        {loading ? (
-          <Text style={{ marginTop: 20 }}>Loading products...</Text>
-        ) : products.length > 0 ? (
-          <FlatList
-            data={products}
-            keyExtractor={(item) => item._id}
-            renderItem={renderProduct}
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search products..."
+            placeholderTextColor={colors.textTertiary}
+            value={searchText}
+            onChangeText={setSearchText}
           />
-        ) : (
-          <Text style={{ marginTop: 20 }}>
-            {selectedCategory ? "No products found" : "Select a category"}
-          </Text>
-        )}
-      </View> */}
+        </View>
 
-      {/* -------- Cart Summary -------- */}
-      <View style={styles.cartSummary}>
-        <Text style={{ fontWeight: "bold", marginBottom: 10 }}>
-          Cart: {cart.length} items | Total: ₹{totalPrice}
-        </Text>
+        <View style={styles.categoriesWrap}>
+          <FlatList
+            data={categories}
+            keyExtractor={(item) => item._id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesContent}
+            renderItem={({ item }) => (
+              <CategoryPill
+                label={item.name}
+                selected={selectedCategory === item._id}
+                onPress={() => handleCategorySelect(item)}
+              />
+            )}
+          />
+        </View>
 
-        {cart.length > 0 && (
-          <>
-            <View style={styles.paymentContainer}>
-              <Text style={{ fontWeight: "600", marginBottom: 5 }}>
-                Select Payment Mode:
-              </Text>
-              <View style={styles.paymentOptions}>
-                <TouchableOpacity
-                  style={styles.paymentOption}
-                  onPress={() => setPaymentMode("Cash")}
-                >
-                  <View
-                    style={[
-                      styles.radioCircle,
-                      paymentMode === "Cash" && styles.radioSelected,
-                    ]}
-                  />
-                  <Text style={styles.paymentText}>Cash</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.paymentOption}
-                  onPress={() => setPaymentMode("Online")}
-                >
-                  <View
-                    style={[
-                      styles.radioCircle,
-                      paymentMode === "Online" && styles.radioSelected,
-                    ]}
-                  />
-                  <Text style={styles.paymentText}>Online</Text>
-                </TouchableOpacity>
+        <FlatList
+          data={filteredProducts}
+          keyExtractor={(item) => item._id}
+          numColumns={2}
+          columnWrapperStyle={styles.productRow}
+          contentContainerStyle={styles.productList}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+          ListEmptyComponent={
+            loading ? (
+              <ProductGridSkeleton />
+            ) : (
+              <View style={styles.empty}>
+                <Text style={styles.emptyText}>
+                  {selectedCategory
+                    ? searchText
+                      ? "No products match your search"
+                      : "No products in this category"
+                    : "Select a category"}
+                </Text>
               </View>
-            </View>
+            )
+          }
+          renderItem={renderProduct}
+        />
 
-            <TouchableOpacity
-              style={styles.checkoutBtn}
-              onPress={() =>
-                navigation.navigate("Orders", {
-                  cart,
-                  total: totalPrice,
-                  paymentMode,
-                })
-              }
-            >
-              <Text style={styles.checkoutText}>
-                Proceed to Pay ({paymentMode})
-              </Text>
-            </TouchableOpacity>
-          </>
+        {itemCount > 0 && (
+          <View style={styles.paymentSection}>
+            <PaymentToggle value={paymentMode} onChange={setPaymentMode} />
+          </View>
         )}
-      </View>
-    </SafeAreaView>
+
+        <FloatingCartBar
+          itemCount={itemCount}
+          totalAmount={totalAmount}
+          onProceedToPay={handleProceedToPay}
+          disabled={itemCount === 0}
+        />
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 15, backgroundColor: "#fff" },
-  orderBtn: {
-    backgroundColor: "gray",
-    padding: 5,
-    borderRadius: 8,
-    marginVertical: 10,
-    alignItems: "center",
-  },
-  orderBtnText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-
-
-  // ---------- Header ----------
-  header: {
-    padding: 12,
-    backgroundColor: "#f1f1f1",
-    borderRadius: 10,
-    marginBottom: 15,
-    marginTop:15,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  }
-  ,
-  headerTitle: { fontSize: 22, fontWeight: "bold" },
-  logoutBtn: {
-    backgroundColor: "#ff4d4d",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  logoutText: { color: "#fff", fontWeight: "bold" },
-
-  // ---------- Category Box ----------
-  categoryBox: {
-    padding: 12,
-    backgroundColor: "#f1f1f1",
-    borderRadius: 10,
-    marginBottom: 15,
-  },
-  row: {
-    justifyContent: "space-between", // 2 column me spacing
-    marginBottom: 10,
-  },
-  categoryBtn: {
-    flex: 1, // taki equally space le
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderWidth: 1,
-    borderRadius: 20,
-    borderColor: "#000",
-    marginHorizontal: 5,
-    backgroundColor: "#fff",
-  },
-  activeCategory: { backgroundColor: "#000" },
-  categoryText: { color: "#000", fontWeight: "600", textAlign: "center" },
-  activeCategoryText: { color: "#fff" },
-
-
-  // ---------- Product Box ----------
-  productBox: {
+  container: {
     flex: 1,
-    padding: 8,          // thoda kam padding
-    backgroundColor: "#fafafa",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#eee",
+    backgroundColor: colors.background,
   },
-  productCard: {
+  safe: {
+    flex: 1,
+  },
+  searchWrap: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    padding: 8,           // chhota card
-    marginVertical: 4,
+    backgroundColor: colors.surface,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.sm,
     borderWidth: 1,
-    borderRadius: 6,
-    borderColor: "#ccc",
-    backgroundColor: "#fff",
+    borderColor: colors.borderLight,
   },
-  productText: { fontSize: 14, fontWeight: "500" }, // chhota text
-  cartBtn: {
-    backgroundColor: "#000",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
+  searchIcon: {
+    marginRight: spacing.xs,
   },
-  cartBtnText: { color: "#fff", fontWeight: "bold", fontSize: 12 },
   searchInput: {
-    height: 40,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    marginBottom: 8,
-    backgroundColor: "#fff",
+    flex: 1,
+    height: 44,
+    ...typography.body,
+    color: colors.textPrimary,
+    paddingVertical: 0,
   },
-
-
-  // ---------- Cart Summary ----------
-  cartSummary: {
-    padding: 15,
-    borderTopWidth: 1,
-    borderColor: "#ccc",
-    marginTop: 10,
-    backgroundColor: "#f9f9f9",
-    borderRadius: 12,
+  categoriesWrap: {
+    marginBottom: spacing.sm,
   },
-  paymentContainer: { marginVertical: 10 },
-  paymentOptions: { flexDirection: "row", marginTop: 5 },
-  paymentOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: 20,
+  categoriesContent: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
   },
-  radioCircle: {
-    height: 18,
-    width: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: "#000",
-    marginRight: 8,
-  },
-  radioSelected: {
-    backgroundColor: "#000",
-  },
-  paymentText: { fontSize: 14 },
-  checkoutBtn: {
-    backgroundColor: "#000",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 10,
-    alignItems: "center",
-  },
-  checkoutText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-
-  // ---------- Quantity Selector ----------
-  qtyContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+  productRow: {
     justifyContent: "space-between",
-    width: 100,
-    padding: 5,
-    backgroundColor: "#fff",
+    paddingHorizontal: spacing.sm,
   },
-  qtyBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 5,
-    backgroundColor: "#000",
+  productList: {
+    paddingBottom: spacing.xxl + 100,
+  },
+  empty: {
+    paddingVertical: spacing.xxxl,
     alignItems: "center",
-    justifyContent: "center",
   },
-  qtyText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
+  emptyText: {
+    ...typography.body,
+    color: colors.textSecondary,
   },
-  qtyValue: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#000",
-    marginHorizontal: 10,
+  paymentSection: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    paddingBottom: spacing.sm,
   },
 });

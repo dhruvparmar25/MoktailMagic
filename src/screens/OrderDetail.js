@@ -6,12 +6,15 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Button,
   Platform,
 } from "react-native";
-import Toast from "react-native-toast-message";
+import { SafeAreaView } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import Toast from "react-native-toast-message";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { getOrders } from "../api/auth";
+import { AppHeader } from "../components";
+import { colors, spacing, borderRadius, typography } from "../theme";
 
 export default function OrderDetail({ navigation }) {
   const [orders, setOrders] = useState([]);
@@ -23,34 +26,31 @@ export default function OrderDetail({ navigation }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
 
-  // ---------------- Fetch Orders ----------------
   const fetchOrders = useCallback(
     async (pageNo = 1, append = false, date = selectedDate) => {
       try {
         if (pageNo === 1) setLoading(true);
         else setLoadingMore(true);
-
-        const formattedDate = date.toISOString().split("T")[0]; // YYYY-MM-DD
-        const response = await getOrders(formattedDate, formattedDate, pageNo, 10);
-
+        const formatted = date.toISOString().split("T")[0];
+        const response = await getOrders(formatted, formatted, pageNo, 10);
         if (response.status) {
-          setTotalOrders(response.data.totalDocs || 0);
-          const orderArray = Array.isArray(response.data.docs)
+          setTotalOrders(response.data?.totalDocs ?? 0);
+          const arr = Array.isArray(response.data?.docs)
             ? response.data.docs
-            : [response.data.docs];
-
-          setOrders(prev => (append ? [...prev, ...orderArray] : orderArray));
-          setHasNextPage(response.data.hasNextPage);
+            : response.data?.docs
+            ? [response.data.docs]
+            : [];
+          setOrders((prev) => (append ? [...prev, ...arr] : arr));
+          setHasNextPage(response.data?.hasNextPage ?? false);
         } else {
           setOrders([]);
           setHasNextPage(false);
         }
       } catch (err) {
-        console.log("Error fetching orders:", err);
         Toast.show({
           type: "error",
-          text1: "Failed to fetch orders",
-          text2: "Please try again later",
+          text1: "Error",
+          text2: "Could not load orders",
         });
       } finally {
         setLoading(false);
@@ -60,155 +60,256 @@ export default function OrderDetail({ navigation }) {
     [selectedDate]
   );
 
-  // ---------------- Initial Load ----------------
   useEffect(() => {
     fetchOrders(1, false);
   }, [fetchOrders]);
 
-  // ---------------- Load More ----------------
   const loadMore = () => {
-    if (!hasNextPage || loadingMore) return; // guard
-    const nextPage = page + 1;
-    setPage(nextPage);
-    fetchOrders(nextPage, true);
+    if (!hasNextPage || loadingMore) return;
+    const next = page + 1;
+    setPage(next);
+    fetchOrders(next, true);
   };
 
-  // ---------------- Date Picker ----------------
   const onDateChange = (event, date) => {
     if (date) {
       setSelectedDate(date);
-      setPage(1); // reset pagination
+      setPage(1);
       fetchOrders(1, false, date);
     }
-    setShowPicker(Platform.OS === "ios");
+    if (Platform.OS === "android") setShowPicker(false);
   };
 
-  // ---------------- Render Single Order ----------------
   const renderOrder = ({ item, index }) => {
-    const products = item.products || [];
-    const totalPrice = products.reduce(
-      (sum, p) => sum + ((p.productId?.assign_price || 0) * (p.quantity || 0)),
-      0
-    );
-
-    const orderDate = new Date(item.updatedAt);
-    const formattedDate = `${("0" + orderDate.getDate()).slice(-2)}-${(
-      "0" +
-      (orderDate.getMonth() + 1)
-    ).slice(-2)}-${orderDate.getFullYear()}`;
-    const formattedTime = orderDate.toLocaleTimeString("en-US", {
+    const products = item.products ?? [];
+    const totalPrice =
+      item.totalAmount ??
+      products.reduce(
+        (sum, p) =>
+          sum + ((p.productId?.assign_price ?? 0) * (p.quantity ?? 0)),
+        0
+      );
+    const updated = new Date(item.updatedAt ?? item.createdAt);
+    const dateStr = updated.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+    const timeStr = updated.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
     });
 
     return (
-      <TouchableOpacity
-        style={styles.orderCard}
-        onPress={() => navigation.navigate("OrderSummary", { order: item })}
+      <Animated.View
+        entering={FadeInDown.delay(index * 30).duration(260)}
+        style={styles.cardWrap}
       >
-        <Text style={styles.orderId}>
-          {formattedDate}, {formattedTime}
-        </Text>
-        <Text>Payment Mode: {item.paymentMode}</Text>
-        <Text>Total Items: {products.length}</Text>
-        <Text>Total Price: ₹{totalPrice}</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={styles.card}
+          onPress={() => navigation.navigate("OrderSummary", { order: item })}
+        >
+          <View style={styles.cardTop}>
+            <Text style={styles.cardDate}>{dateStr}, {timeStr}</Text>
+            <View
+              style={[
+                styles.badge,
+                (item.paymentMode || "").toLowerCase() === "online"
+                  ? styles.badgeOnline
+                  : styles.badgeCash,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.badgeText,
+                  (item.paymentMode || "").toLowerCase() === "online" &&
+                    styles.badgeTextOnline,
+                ]}
+              >
+                {item.paymentMode ?? "Cash"}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.cardRow}>
+            <Text style={styles.cardMeta}>
+              {products.length} item{products.length !== 1 ? "s" : ""}
+            </Text>
+            <Text style={styles.cardTotal}>₹{totalPrice}</Text>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
 
-  // ---------------- Loading State ----------------
   if (loading && page === 1) {
     return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#00A86B" />
+      <View style={styles.loaderWrap}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
-  // ---------------- Render ----------------
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>My Orders ({totalOrders})</Text>
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <AppHeader
+          title="Orders"
+          subtitle={`${totalOrders} on selected date`}
+          rightAction="Home"
+          onRightPress={() => navigation.navigate("Home")}
+        />
+
         <TouchableOpacity
-          style={styles.orderBtn}
-          onPress={() => navigation.navigate("Home")}
+          style={styles.dateButton}
+          onPress={() => setShowPicker(true)}
         >
-          <Text style={styles.homeBtn}>Home</Text>
+          <Text style={styles.dateButtonText}>
+            {selectedDate.toLocaleDateString("en-IN", {
+              weekday: "short",
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
+          </Text>
         </TouchableOpacity>
-      </View>
 
-      {/* Date Picker */}
-      <Button
-        title={`Selected Date: ${selectedDate.toLocaleDateString()}`}
-        onPress={() => setShowPicker(true)}
-      />
+        {showPicker && (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display={Platform.OS === "ios" ? "spinner" : "default"}
+            onChange={onDateChange}
+            maximumDate={new Date()}
+          />
+        )}
 
-      {showPicker && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="date"
-          display="default"
-          onChange={onDateChange}
-        />
-      )}
-
-      {/* Orders List */}
-      {orders.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>No orders found for this date</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={orders}
-          keyExtractor={(item, index) => `${item._id}_${index}`}
-          renderItem={renderOrder}
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.3} // triggers earlier for better UX
-          ListFooterComponent={
-            loadingMore ? <ActivityIndicator size="small" color="#00A86B" /> : null
-          }
-        />
-      )}
+        {orders.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>
+              No orders for this date
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={orders}
+            keyExtractor={(item) => item._id}
+            renderItem={renderOrder}
+            contentContainerStyle={styles.list}
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.3}
+            ListFooterComponent={
+              loadingMore ? (
+                <ActivityIndicator
+                  size="small"
+                  color={colors.primary}
+                  style={styles.footerLoader}
+                />
+              ) : null
+            }
+          />
+        )}
+      </SafeAreaView>
     </View>
   );
 }
 
-// ---------------- Styles ----------------
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 15 },
-  orderCard: {
-    backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  safe: {
+    flex: 1,
+  },
+  loaderWrap: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: colors.background,
+  },
+  dateButton: {
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  dateButtonText: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+  },
+  list: {
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.xxl,
+  },
+  cardWrap: {
+    marginBottom: spacing.sm,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.md,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
     elevation: 2,
   },
-  orderId: { fontWeight: "bold", marginBottom: 5 },
-  loader: { flex: 1, justifyContent: "center", alignItems: "center" },
-  empty: { flex: 1, justifyContent: "center", alignItems: "center" },
-  emptyText: { fontSize: 16, color: "#555" },
-  headerRow: {
+  cardTop: {
     flexDirection: "row",
-    justifyContent: "space-between", // Title left, Home button right
+    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: spacing.xs,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
+  cardDate: {
+    ...typography.captionMedium,
+    color: colors.textPrimary,
   },
-  orderBtn: {
-    backgroundColor: "#000",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 5,
+  badge: {
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.secondaryMuted,
   },
-  homeBtn: {
-    color: "#fff",
-    fontWeight: "bold",
+  badgeOnline: {
+    backgroundColor: colors.accentMuted,
   },
-
+  badgeText: {
+    ...typography.label,
+    color: colors.secondary,
+  },
+  badgeTextOnline: {
+    color: colors.accent,
+  },
+  cardRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  cardMeta: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  cardTotal: {
+    ...typography.h3,
+    color: colors.textPrimary,
+  },
+  empty: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: spacing.xxxl,
+  },
+  emptyText: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  footerLoader: {
+    marginVertical: spacing.sm,
+  },
 });

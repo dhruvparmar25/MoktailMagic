@@ -1,169 +1,217 @@
 import React, { useState, useEffect } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   View,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   Text,
-  SafeAreaView,
-  StatusBar,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import Animated, { FadeIn } from "react-native-reanimated";
+import { Pressable } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { login } from "../api/auth";
 import Toast from "react-native-toast-message";
-import { FontAwesome6 } from '@expo/vector-icons';
+import { PrimaryButton } from "../components";
+import { colors, gradients, spacing, borderRadius, typography } from "../theme";
 
-
-const Login = ({ navigation }) => {
+export default function Login({ navigation }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-
-  // ----------- Token check for auto-login -----------
   useEffect(() => {
     const checkToken = async () => {
       const token = await AsyncStorage.getItem("token");
-      if (token) {
-        navigation.replace("Home"); // Already logged in
-      }
+      if (token) navigation.replace("Home");
     };
     checkToken();
   }, []);
-  // ---------------------------------------------------
 
   const handleLogin = async () => {
+    if (!username.trim() || !password.trim()) {
+      Toast.show({
+        type: "error",
+        text1: "Required",
+        text2: "Enter username and password",
+      });
+      return;
+    }
+    setLoading(true);
     try {
       const response = await login(username, password);
-      console.log("Login Response:", response);
-
       if (response.jwt) {
         await AsyncStorage.setItem("token", response.jwt);
+        await AsyncStorage.setItem("staffName", response.firstName ?? username.split("@")[0] ?? "Staff");
         navigation.replace("Home");
         Toast.show({
           type: "success",
-          text1: "Login Successful",
-          text2: response.message,
+          text1: "Welcome back",
+          text2: response.message ?? "Login successful",
         });
       } else {
         Toast.show({
           type: "error",
-          text1: "Login Failed",
-          text2: response.message || "Invalid credentials",
+          text1: "Login failed",
+          text2: response.message ?? "Invalid credentials",
         });
       }
     } catch (error) {
       Toast.show({
         type: "error",
         text1: "Error",
-        text2: error.response?.data?.message || error.message,
+        text2: error.response?.data?.message ?? error.message,
       });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-<SafeAreaView style={styles.container}>
-  <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <View style={styles.container}>
+      <LinearGradient
+        colors={gradients.loginBg}
+        style={StyleSheet.absoluteFill}
+      />
+      <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.keyboard}
+        >
+          <Animated.View entering={FadeIn.duration(400)} style={styles.card}>
+            <Text style={styles.logo}>Moktail</Text>
+            <Text style={styles.subtitle}>Sign in to continue</Text>
 
-  <Text style={styles.title}>Login</Text>
+            <Text style={styles.inputLabel}>Username</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter username"
+              placeholderTextColor={colors.textTertiary}
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
 
-  <TextInput
-    style={styles.input}
-    placeholder="Username or Email"
-    placeholderTextColor="#555"
-    value={username}
-    onChangeText={setUsername}
-    autoCapitalize="none"
-  />
+            <Text style={styles.inputLabel}>Password</Text>
+            <View style={styles.passwordWrap}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Enter password"
+                placeholderTextColor={colors.textTertiary}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <Pressable
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eye}
+                hitSlop={12}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={22}
+                  color={colors.textSecondary}
+                />
+              </Pressable>
+            </View>
 
-  {/* Password field with eye icon */}
-  <View style={styles.passwordContainer}>
-    <TextInput
-      style={styles.passwordInput}
-      placeholder="Password"
-      placeholderTextColor="#555"
-      value={password}
-      onChangeText={setPassword}
-      secureTextEntry={!showPassword}
-    />
-    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-      <FontAwesome6 name={showPassword ? 'eye' : 'eye-slash'} size={18} style={styles.eyeIcon} />
-    </TouchableOpacity>
-  </View>
-
-  <TouchableOpacity style={styles.button} onPress={handleLogin}>
-    <Text style={styles.buttonText}>Sign In</Text>
-  </TouchableOpacity>
-</SafeAreaView>
-
+            <View style={styles.buttonWrap}>
+              <PrimaryButton
+                label="Sign In"
+                onPress={handleLogin}
+                loading={loading}
+                variant="primary"
+                style={styles.button}
+              />
+            </View>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
+    backgroundColor: colors.background,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#000",
-    marginBottom: 40,
+  safe: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+  },
+  keyboard: {
+    width: "100%",
+  },
+  card: {
+    backgroundColor: colors.glassBg,
+    borderRadius: borderRadius.xxl,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  logo: {
+    ...typography.display,
+    color: colors.textPrimary,
+    textAlign: "center",
+    marginBottom: spacing.xxs,
+  },
+  subtitle: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginBottom: spacing.lg,
+  },
+  inputLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
+    marginBottom: spacing.xxs,
+    marginTop: spacing.sm,
   },
   input: {
-    width: "100%",
+    height: 48,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: "#000",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 20,
-    color: "#000",
+    borderColor: colors.borderLight,
+    paddingHorizontal: spacing.sm,
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  passwordWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 48,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    paddingRight: spacing.xs,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: spacing.sm,
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  eye: {
+    padding: spacing.xs,
+  },
+  buttonWrap: {
+    marginTop: spacing.lg,
   },
   button: {
     width: "100%",
-    backgroundColor: "#000",
-    paddingVertical: 14,
-    borderRadius: 8,
-    marginTop: 10,
-    marginBottom: 25,
   },
-  buttonText: {
-    color: "#fff",
-    textAlign: "center",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  link: {
-    fontSize: 14,
-    color: "#000",
-    textDecorationLine: "underline",
-  },
-  passwordContainer: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  width: '100%',
-  borderWidth: 1,
-  borderColor: '#000',
-  borderRadius: 8,
-  marginBottom: 20,
-  paddingRight: 12, // sirf right me thoda space eye icon ke liye
-},
-passwordInput: {
-  flex: 1,
-  paddingVertical: 12,
-  paddingLeft: 12, // left padding input ke liye
-  fontSize: 16,
-  color: '#000',
-},
-eyeIcon: {
-  marginLeft: 8,
-  color: '#000',
-}
-
 });
-
-export default Login;

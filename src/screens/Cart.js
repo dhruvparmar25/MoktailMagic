@@ -1,38 +1,80 @@
-import React from 'react';
-import { View, Text, FlatList, StyleSheet, SafeAreaView } from 'react-native';
+import React from "react";
+import { View, Text, FlatList, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { AppHeader } from "../components";
+import { colors, spacing, borderRadius, typography } from "../theme";
 
-const Cart = ({ route }) => {
-  const { cartItems } = route.params; // Home se items aayenge
+export default function Cart({ route, navigation }) {
+  const cartItems = route.params?.cartItems ?? [];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>My Cart</Text>
-
-      {cartItems.length === 0 ? (
-        <Text style={styles.emptyText}>Cart is Empty</Text>
-      ) : (
-        <FlatList
-          data={cartItems}
-          keyExtractor={(item, index) => index.toString()}
-          renderItem={({ item }) => (
-            <View style={styles.cartItem}>
-              <Text style={styles.itemName}>{item.name}</Text>
-              <Text style={styles.itemPrice}>{item.price}</Text>
-            </View>
-          )}
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <AppHeader
+          title="Cart"
+          showBack
+          onBackPress={() => navigation.goBack()}
         />
-      )}
-    </SafeAreaView>
+        {cartItems.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>Cart is empty</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={cartItems}
+            keyExtractor={(item, index) => item._id ?? String(index)}
+            contentContainerStyle={styles.list}
+            renderItem={({ item }) => (
+              <View style={styles.row}>
+                <Text style={styles.itemName} numberOfLines={2}>
+                  {item.title ?? item.name}
+                </Text>
+                <Text style={styles.itemMeta}>
+                  {item.qty ?? 1} × ₹{item.assign_price ?? item.price}
+                </Text>
+              </View>
+            )}
+          />
+        )}
+      </SafeAreaView>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 20 },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 20, textAlign: 'center' },
-  emptyText: { fontSize: 16, textAlign: 'center', marginTop: 50, color: '#888' },
-  cartItem: { padding: 15, borderBottomWidth: 1, borderColor: '#eee' },
-  itemName: { fontSize: 16, fontWeight: '600' },
-  itemPrice: { fontSize: 14, color: '#555' },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  safe: {
+    flex: 1,
+  },
+  list: {
+    padding: spacing.sm,
+    paddingBottom: spacing.xxl,
+  },
+  row: {
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.xs,
+  },
+  itemName: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+  },
+  itemMeta: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  empty: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyText: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
 });
-
-export default Cart;
